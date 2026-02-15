@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>打磚塊：柔和平衡版</title>
+    <style>
+        :root { 
+            --bg: #202840;       
+            --paddle: #80DEEA;   
+            --ball: #FF8A80;     
+            --text-yel: #FFF59D; 
+        }
+        body { margin: 0; overflow: hidden; background: var(--bg); font-family: "Microsoft JhengHei", sans-serif; touch-action: none; }
+        #game-wrapper { position: relative; width: 100vw; height: 100vh; background: var(--bg); }
+        canvas { display: block; }
+
+        /* 左上角分數資訊 */
+        #hud { 
+            position: absolute; top: 15px; left: 15px; color: white; 
+            font-size: 18px; font-weight: bold; pointer-events: none; 
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.5); z-index: 50;
+        }
+
+        /* --- 新增：右上角返回大廳按鈕 --- */
+        .home-btn {
+            position: absolute; top: 15px; right: 15px;
+            width: 45px; height: 45px;
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            color: white; font-size: 24px; text-decoration: none;
+            z-index: 1500; /* 確保在所有遮罩之上 */
+            backdrop-filter: blur(5px);
+            -webkit-tap-highlight-color: transparent;
+        }
+        .home-btn:active { background: rgba(255, 255, 255, 0.3); transform: scale(0.9); }
+        
+        /* 介面遮罩 */
+        .overlay { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(32, 40, 64, 0.9); 
+            display: flex; justify-content: center; 
+            align-items: center; z-index: 1000; flex-direction: column; 
+        }
+        
+        .btn-start { 
+            background: var(--ball); color: white; border: 3px solid white; 
+            padding: 18px 50px; font-size: 26px; border-radius: 60px; 
+            cursor: pointer; box-shadow: 0 5px 0 #C66963;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .result-modal { background: white; padding: 30px; border-radius: 25px; text-align: center; width: 280px; display: flex; flex-direction: column; gap: 15px; }
+    </style>
+</head>
+<body>
+
+<div id="game-wrapper">
+    <a href="index.html" class="home-btn">🏠</a>
+
+    <div id="hud">
+        <div>得分: <span id="score-text">0</span> / 100</div>
+        <div style="color: var(--text-yel); font-size: 14px;">速度: <span id="speed-text">1.0</span>x / 2.0x</div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="start-mask" class="overlay">
+        <h1 style="color:white; margin-bottom:10px;">💣 炸彈與加速挑戰</h1>
+        <p style="color:white; opacity:0.8; margin-bottom:30px; text-align:center;">得分越高球越快(最高2倍)！<br>撞擊炸彈會爆炸！</p>
+        <button class="btn-start" onpointerdown="startGame(event)">開始遊戲</button>
+    </div>
+
+    <div id="result-modal" class="overlay" style="display:none;">
+        <div class="result-modal">
+            <h2 id="result-title" style="color:#333;">挑戰結束</h2>
+            <p id="final-score" style="color: var(--ball); font-size:32px; font-weight:bold;"></p>
+            <button class="btn-start" style="font-size:20px; padding: 12px 30px; box-shadow:0 4px 0 #C66963;" onpointerdown="location.reload()">再玩一次</button>
+            <a href="index.html" style="text-decoration:none; color:#757575; font-weight:bold; padding: 10px;">回到大廳</a>
+        </div>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const BASE_MOVE_SPEED = 6; 
+let score = 0;
+let isGaming = false;
+let lastBombTime = 0;
+
+const paddle = { width: 0, height: 18, x: 0, y: 0, color: '#80DEEA' };
+const ball = { x: 0, y: 0, radius: 10, dx: 0, dy: 0, color: '#FF8A80' };
+
+const brickRows = 5;
+const brickCols = 5;
+const rowScores = [8, 6, 3, 2, 1]; 
+const brickColors = ['#F48FB1', '#CE93D8', '#90CAF9', '#A5D6A7', '#FFF59D'];
+let bricks = [];
+let particles = [];
+let floatingTexts = [];
+let bombs = [];
+
+function init() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    paddle.width = canvas.width * 0.25;
+    paddle.x = (canvas.width - paddle.width) / 2;
+    paddle.y = canvas.height - 80;
+    resetBall();
+
+    const bPadding = 10;
+    const bOffsetTop = 100;
+    const bWidth = (canvas.width - (bPadding * (brickCols + 1))) / brickCols;
+    const bHeight = 35;
+
+    bricks = [];
+    for(let r=0; r<brickRows; r++) {
+        bricks[r] = [];
+        for(let c=0; c<brickCols; c++) {
+            bricks[r][c] = { 
+                x: (c * (bWidth + bPadding)) + bPadding,
+                y: (r * (bHeight + bPadding)) + bOffsetTop,
+                width: bWidth, height: bHeight,
+                status: 1, color: brickColors[r], score: rowScores[r],
+                row: r, col: c
+            };
+        }
+    }
+}
+
+function resetBall() {
+    ball.x = canvas.width / 2;
+    ball.y = canvas.height / 2;
+    ball.dx = (Math.random() - 0.5) * 4;
+    ball.dy = BASE_MOVE_SPEED;
+}
+
+function startGame(e) {
+    if(e) e.preventDefault(); 
+    document.getElementById('start-mask').style.display = 'none';
+    isGaming = true;
+    lastBombTime = Date.now();
+    init();
+    requestAnimationFrame(gameLoop);
+}
+
+function gameLoop() {
+    if(!isGaming) return;
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+function handleExplosion() {
+    let activeBricks = [];
+    bricks.forEach(row => row.forEach(b => { if(b.status === 1) activeBricks.push(b); }));
+    if(activeBricks.length > 0) {
+        let target = activeBricks[Math.floor(Math.random() * activeBricks.length)];
+        let tr = target.row, tc = target.col;
+        for(let r = tr-1; r <= tr+1; r++) {
+            for(let c = tc-1; c <= tc+1; c++) {
+                if(r >= 0 && r < brickRows && c >= 0 && c < brickCols) {
+                    let b = bricks[r][c];
+                    if(b.status === 1) {
+                        b.status = 0;
+                        score += b.score;
+                        createParticles(b.x + b.width/2, b.y + b.height/2, '#FFFFFF', 10);
+                        createFloatingText(b.x + b.width/2, b.y, "+" + b.score);
+                    }
+                }
+            }
+        }
+        document.getElementById('score-text').innerText = Math.min(score, 100);
+        if(score >= 100) victory();
+    }
+}
+
+function update() {
+    let speedMultiplier = 1 + (score / 100);
+    let currentSpeed = BASE_MOVE_SPEED * speedMultiplier;
+    document.getElementById('speed-text').innerText = speedMultiplier.toFixed(1);
+
+    if(Date.now() - lastBombTime > 10000) {
+        const num = Math.floor(Math.random() * 3) + 3;
+        for(let i=0; i<num; i++) {
+            bombs.push({ x: Math.random()*(canvas.width-40)+20, y:-50, radius:15, speed: Math.random()*2+2 });
+        }
+        lastBombTime = Date.now();
+    }
+
+    if(ball.x + ball.dx > canvas.width - ball.radius || ball.x + ball.dx < ball.radius) ball.dx = -ball.dx;
+    if(ball.y + ball.dy < ball.radius) ball.dy = -ball.dy;
+    
+    if(ball.y + ball.dy > paddle.y - ball.radius) {
+        if(ball.x > paddle.x && ball.x < paddle.x + paddle.width) {
+            let hitPos = (ball.x - (paddle.x + paddle.width / 2)) / (paddle.width / 2);
+            ball.dx = hitPos * currentSpeed;
+            ball.dy = -currentSpeed;
+        } else if (ball.y > canvas.height) {
+            gameOver();
+        }
+    }
+    ball.x += ball.dx; ball.y += ball.dy;
+
+    bombs.forEach((b, i) => {
+        b.y += b.speed;
+        if(Math.hypot(ball.x - b.x, ball.y - b.y) < ball.radius + 15) {
+            handleExplosion(); bombs.splice(i, 1); ball.dy = -Math.abs(ball.dy);
+        }
+        if(b.y > canvas.height) bombs.splice(i, 1);
+    });
+
+    bricks.forEach(row => row.forEach(b => {
+        if(b.status === 1) {
+            if(ball.x > b.x && ball.x < b.x + b.width && ball.y > b.y && ball.y < b.y + b.height) {
+                ball.dy = -ball.dy; b.status = 0; score += b.score;
+                document.getElementById('score-text').innerText = Math.min(score, 100);
+                createParticles(b.x + b.width/2, b.y + b.height/2, b.color, 8);
+                createFloatingText(b.x + b.width/2, b.y, "+" + b.score);
+                if(score >= 100) victory();
+            }
+        }
+    }));
+
+    particles.forEach(p => { p.x += p.dx; p.y += p.dy; p.life -= 0.03; });
+    particles = particles.filter(p => p.life > 0);
+    floatingTexts.forEach(ft => { ft.y -= 1.5; ft.opacity -= 0.02; });
+    floatingTexts = floatingTexts.filter(ft => ft.opacity > 0);
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    bricks.forEach(row => row.forEach(b => {
+        if(b.status === 1) {
+            ctx.fillStyle = b.color;
+            ctx.fillRect(b.x, b.y, b.width, b.height);
+            ctx.fillStyle = "rgba(255,255,255,0.8)"; ctx.font = "bold 14px Arial"; ctx.textAlign = "center";
+            ctx.fillText(b.score, b.x + b.width/2, b.y + b.height/2 + 5);
+        }
+    }));
+    ctx.font = "30px Arial"; ctx.textAlign = "center";
+    bombs.forEach(b => ctx.fillText("💣", b.x, b.y + 10));
+    floatingTexts.forEach(ft => {
+        ctx.fillStyle = `rgba(255, 255, 255, ${ft.opacity})`;
+        ctx.font = "bold 24px Arial"; ctx.fillText(ft.text, ft.x, ft.y);
+    });
+    particles.forEach(p => {
+        ctx.globalAlpha = p.life; ctx.fillStyle = p.color;
+        ctx.fillRect(p.x, p.y, 4, 4);
+    });
+    ctx.globalAlpha = 1.0;
+    ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI*2);
+    ctx.fillStyle = ball.color; ctx.fill(); ctx.closePath();
+    ctx.fillStyle = paddle.color;
+    ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+}
+
+function createFloatingText(x, y, text) { floatingTexts.push({ x, y, text, opacity: 1.0 }); }
+function createParticles(x, y, color, num) {
+    for(let i=0; i<num; i++) particles.push({ x, y, dx: (Math.random()-0.5)*10, dy: (Math.random()-0.5)*10, life: 1.0, color });
+}
+
+function handleInput(e) {
+    let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    paddle.x = Math.max(0, Math.min(canvas.width - paddle.width, clientX - paddle.width / 2));
+}
+window.addEventListener('mousemove', handleInput);
+window.addEventListener('touchstart', handleInput);
+window.addEventListener('touchmove', (e) => { e.preventDefault(); handleInput(e); }, {passive:false});
+
+function gameOver() { isGaming = false; document.getElementById('result-title').innerText = "失敗了！"; document.getElementById('final-score').innerText = score + " 分"; document.getElementById('result-modal').style.display = 'flex'; localStorage.setItem('brick_score', score);}
+function victory() { isGaming = false; document.getElementById('result-title').innerText = "贏了！"; document.getElementById('final-score').innerText = "100分達成！"; document.getElementById('result-modal').style.display = 'flex'; localStorage.setItem('brick_score', 100);}
+
+init();
+draw();
+</script>
+</body>
+</html>
