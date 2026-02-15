@@ -6,7 +6,6 @@
     <title>恩恩的遊戲樂園 - EnEnGram</title>
     
     <style>
-        /* 基礎設定 */
         body {
             background-color: #FAFAFA;
             font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", sans-serif;
@@ -36,10 +35,11 @@
         .emoji-title { color: white; font-size: 28px; font-weight: bold; margin-top: 12px; text-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 2; }
         .emoji-decor { position: absolute; font-size: 80px; opacity: 0.15; z-index: 1; user-select: none; }
 
-        /* 低彩度柔和色調主題 */
-        .cover-math { background: linear-gradient(135deg, #FFD54F 0%, #FF8A65 100%); } /* 暖橘黃 */
-        .cover-forest { background: linear-gradient(135deg, #A5D6A7 0%, #66BB6A 100%); } /* 森林綠 */
-        .cover-brick { background: linear-gradient(135deg, #FFAB91 0%, #FF8A80 100%); } /* 柔和珊瑚紅 */
+        /* 莫蘭迪低彩度色調主題 */
+        .cover-math { background: linear-gradient(135deg, #FFD54F 0%, #FF8A65 100%); }
+        .cover-forest { background: linear-gradient(135deg, #A5D6A7 0%, #66BB6A 100%); }
+        .cover-brick { background: linear-gradient(135deg, #90CAF9 0%, #64B5F6 100%); }
+        .cover-fruit { background: linear-gradient(135deg, #C5E1A5 0%, #81C784 100%); } /* 新增：接水果色系 */
 
         /* 頂部導航列 */
         .top-bar {
@@ -47,7 +47,7 @@
             padding: 0 15px; border-bottom: 1px solid #DBDBDB; background: #fff;
             position: sticky; top: 0; z-index: 100;
         }
-        .logo { font-size: 1.6rem; font-weight: bold; font-family: 'Comic Sans MS', cursive, sans-serif; color: #d62976; }
+        .logo { font-size: 1.6rem; font-weight: bold; font-family: cursive, sans-serif; color: #d62976; }
 
         /* 貼文卡片設計 */
         .post-card { border-bottom: 1px solid #DBDBDB; padding-bottom: 20px; margin-bottom: 10px; }
@@ -59,13 +59,7 @@
         .post-caption { margin: 0; line-height: 1.5; font-size: 15px; }
         .post-caption b { margin-right: 5px; color: #262626; }
 
-        /* 底部導航 */
-        .bottom-nav { 
-            position: fixed; bottom: 0; width: 100%; max-width: 500px; height: 55px; 
-            background: #fff; border-top: 1px solid #DBDBDB; 
-            display: flex; justify-content: space-around; align-items: center; 
-            font-size: 26px; z-index: 100; 
-        }
+        .bottom-nav { position: fixed; bottom: 0; width: 100%; max-width: 500px; height: 55px; background: #fff; border-top: 1px solid #DBDBDB; display: flex; justify-content: space-around; align-items: center; font-size: 26px; z-index: 100; }
     </style>
 </head>
 <body>
@@ -74,24 +68,40 @@
     
     <div class="top-bar">
         <div class="logo">EnEnGram</div>
-        <div style="font-size: 22px;">💖</div>
+        <div style="font-size: 22px;">🌟</div>
     </div>
 
     <div class="feed">
         
         <div class="post-card">
             <div class="post-header">
-                <div class="avatar-small">🐧</div>
-                <span>math_wizard</span>
+                <div class="avatar-small">🍎</div>
+                <span>fruit_friends</span>
             </div>
-            <a href="math_game.html" class="emoji-cover cover-math">
-                <div class="emoji-decor" style="top: 5%; right: 5%;">➕</div>
+            <a href="fruit_game.html" class="emoji-cover cover-fruit">
+                <div class="emoji-decor" style="top: 10%; right: 10%;">🧺</div>
                 <div class="emoji-main">🐧</div>
-                <div class="emoji-title">數學大冒險</div>
+                <div class="emoji-title">小企鵝接水果</div>
             </a>
             <div class="post-info">
-                <span class="score-badge">🏆 最高紀錄：<span id="math-score">0</span> 分</span>
-                <p class="post-caption"><b>math_wizard</b> 陪企鵝一起學加減法，變身數學小高手！</p>
+                <span class="score-badge">🧺 團隊分數：<span id="fruit-score">0</span> / 100</span>
+                <p class="post-caption"><b>fruit_friends</b> 小企鵝和好朋友手牽手，大家一起接水果吧！</p>
+            </div>
+        </div>
+
+        <div class="post-card">
+            <div class="post-header">
+                <div class="avatar-small">🧱</div>
+                <span>brick_master</span>
+            </div>
+            <a href="brick_game.html" class="emoji-cover cover-brick">
+                <div class="emoji-decor" style="top: 10%; left: 10%;">🎾</div>
+                <div class="emoji-main">🧱</div>
+                <div class="emoji-title">打磚塊挑戰</div>
+            </a>
+            <div class="post-info">
+                <span class="score-badge">🔥 最佳戰績：<span id="brick-score">0</span> 分</span>
+                <p class="post-caption"><b>brick_master</b> 反彈紅球擊碎彩色磚塊，小心炸彈出沒！</p>
             </div>
         </div>
 
@@ -101,29 +111,29 @@
                 <span>forest_explorer</span>
             </div>
             <a href="map_game.html" class="emoji-cover cover-forest">
-                <div class="emoji-decor" style="bottom: 5%; left: 5%;">🐿️</div>
-                <div class="emoji-main">🗺️</div>
+                <div class="emoji-decor" style="bottom: 5%; left: 5%;">🗺️</div>
+                <div class="emoji-main">🌳</div>
                 <div class="emoji-title">森林大探險</div>
             </a>
             <div class="post-info">
-                <span class="score-badge">🌟 上次挑戰：<span id="forest-score">0</span> 分</span>
-                <p class="post-caption"><b>forest_explorer</b> 進入森林尋找神祕路徑，小心炸彈出沒！</p>
+                <span class="score-badge">🌟 探險得分：<span id="forest-score">0</span> 分</span>
+                <p class="post-caption"><b>forest_explorer</b> 進入神祕森林，選擇路徑尋找寶藏！</p>
             </div>
         </div>
 
         <div class="post-card">
             <div class="post-header">
-                <div class="avatar-small">💣</div>
-                <span>brick_master</span>
+                <div class="avatar-small">🐧</div>
+                <span>math_wizard</span>
             </div>
-            <a href="brick_game.html" class="emoji-cover cover-brick">
-                <div class="emoji-decor" style="top: 10%; left: 10%;">💥</div>
-                <div class="emoji-main">🧱</div>
-                <div class="emoji-title">打磚塊挑戰</div>
+            <a href="math_game.html" class="emoji-cover cover-math">
+                <div class="emoji-decor" style="top: 5%; right: 5%;">➕</div>
+                <div class="emoji-main">🧮</div>
+                <div class="emoji-title">數學大冒險</div>
             </a>
             <div class="post-info">
-                <span class="score-badge">🔥 目前積分：<span id="brick-score">0</span> / 100</span>
-                <p class="post-caption"><b>brick_master</b> 用小紅球擊碎彩色磚塊，累積 100 分通關！</p>
+                <span class="score-badge">🏆 挑戰紀錄：<span id="math-score">0</span> 分</span>
+                <p class="post-caption"><b>math_wizard</b> 和企鵝一起挑戰加減法，腦袋轉轉轉！</p>
             </div>
         </div>
 
@@ -139,17 +149,12 @@
 </div>
 
 <script>
-    // 遊戲分數同步系統
     window.onload = function() {
-        // 讀取各遊戲儲存的分數
-        const mathScore = localStorage.getItem('math_last_score') || 0;
-        const forestScore = localStorage.getItem('forest_score') || 0;
-        const brickScore = localStorage.getItem('brick_score') || 0;
-
-        // 顯示到介面上
-        document.getElementById('math-score').innerText = mathScore;
-        document.getElementById('forest-score').innerText = forestScore;
-        document.getElementById('brick-score').innerText = brickScore;
+        // 同步所有遊戲的分數
+        document.getElementById('math-score').innerText = localStorage.getItem('math_last_score') || 0;
+        document.getElementById('forest-score').innerText = localStorage.getItem('forest_score') || 0;
+        document.getElementById('brick-score').innerText = localStorage.getItem('brick_score') || 0;
+        document.getElementById('fruit-score').innerText = localStorage.getItem('fruit_score') || 0;
     };
 </script>
 

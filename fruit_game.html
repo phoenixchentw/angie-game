@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>小企鵝與好朋友</title>
+    <style>
+        :root { --sky: #D1E9F6; --text: #546E7A; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body, html { margin: 0; padding: 0; overflow: hidden; background: var(--sky); font-family: sans-serif; width: 100%; height: 100%; position: fixed; }
+        #game-wrapper { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden; }
+        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; cursor: pointer; }
+
+        .home-btn {
+            position: absolute; top: 15px; right: 15px; width: 44px; height: 44px;
+            background: rgba(255, 255, 255, 0.4); border: 2px solid #fff; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            color: var(--text); font-size: 24px; text-decoration: none;
+            z-index: 10000; backdrop-filter: blur(5px);
+        }
+
+        #hud { position: absolute; top: 20px; left: 20px; color: var(--text); z-index: 5000; pointer-events: none; }
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.8); display: flex; justify-content: center; align-items: center; z-index: 8000; flex-direction: column; }
+        .btn-real { background: #81C784; color: white; border: 3px solid white; padding: 18px 50px; font-size: 24px; border-radius: 60px; font-weight: bold; cursor: pointer; box-shadow: 0 5px 0 #66BB6A; outline: none; }
+        .result-modal { background: white; padding: 30px; border-radius: 25px; text-align: center; width: 85%; max-width: 320px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+
+<div id="game-wrapper">
+    <a href="index.html" class="home-btn">🏠</a>
+    <div id="hud">
+        <div style="font-size: 20px; font-weight: bold;">我們得的分數: <span id="score-text">0</span> / 100</div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="start-mask" class="overlay">
+        <h1 style="color:var(--text); margin-bottom:10px;">🐧 企鵝與好朋友</h1>
+        <p style="color:#78909C; margin-bottom:30px; text-align:center;">
+            移動滑鼠或手指，兩位好朋友一起接水果！<br>
+            水果掉到地上會扣 5 分喔！
+        </p>
+        <button class="btn-real" id="start-btn">開始遊戲！</button>
+    </div>
+
+    <div id="result-modal" class="overlay" style="display:none;">
+        <div class="result-modal">
+            <h2 id="result-title" style="color:var(--text);">挑戰完成！</h2>
+            <p id="final-score" style="color:#FF8A80; font-size:28px; font-weight:bold; margin:15px 0;"></p>
+            <button class="btn-real" style="font-size:18px; padding:12px 30px;" onclick="location.reload()">再玩一次</button>
+            <a href="index.html" style="text-decoration:none; color:#90A4AE; font-weight:bold; display:block; margin-top:20px;">回到大廳</a>
+        </div>
+    </div>
+</div>
+
+<script>
+// 使用 var 以確保最高瀏覽器相容性
+var canvas = document.getElementById('gameCanvas');
+var ctx = canvas.getContext('2d');
+var score = 0;
+var isGaming = false;
+
+var friends = ['🐧', '🐻'];
+var playerX = 0; 
+var items = [];
+var floatingTexts = [];
+var spawnTimer = 0;
+
+function init() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    playerX = canvas.width / 2;
+}
+
+// 繪製森林背景
+function drawBackground() {
+    ctx.globalAlpha = 1.0;
+    // 1. 天空
+    var skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    skyGradient.addColorStop(0, "#D1E9F6");
+    skyGradient.addColorStop(1, "#FFFFFF");
+    ctx.fillStyle = skyGradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // 2. 遠處的山
+    ctx.fillStyle = "#CFD8DC";
+    drawMountain(canvas.width * 0.3, canvas.height * 0.8, 350, 220);
+    ctx.fillStyle = "#B0BEC5";
+    drawMountain(canvas.width * 0.7, canvas.height * 0.8, 450, 280);
+
+    // 3. 草地
+    ctx.fillStyle = "#A1C398";
+    ctx.fillRect(0, canvas.height * 0.8, canvas.width, canvas.height * 0.2);
+}
+
+function drawMountain(x, y, w, h) {
+    ctx.beginPath();
+    ctx.moveTo(x - w/2, y);
+    ctx.lineTo(x, y - h);
+    ctx.lineTo(x + w/2, y);
+    ctx.fill();
+}
+
+// 物品生成邏輯
+function handleSpawning() {
+    spawnTimer++;
+    // 每隔約 0.5~1秒 生成一個物體，隨分數變快
+    var interval = Math.max(30, 70 - Math.floor(score / 4));
+    if (spawnTimer >= interval) {
+        var isBomb = Math.random() < 0.15;
+        items.push({
+            x: Math.random() * (canvas.width - 60) + 30,
+            y: -50,
+            char: isBomb ? '💣' : ['🍎', '🍊', '🍇', '🍑', '🍓'][Math.floor(Math.random()*5)],
+            isBomb: isBomb,
+            speed: (Math.random() * 1.5 + 3) * (1 + (score / 100))
+        });
+        spawnTimer = 0;
+    }
+}
+
+function update() {
+    if (!isGaming) return;
+    
+    handleSpawning();
+
+    for (var i = items.length - 1; i >= 0; i--) {
+        items[i].y += items[i].speed;
+        
+        var hitZoneWidth = 140; // 兩位朋友的接球總寬度
+        var startX = playerX - (hitZoneWidth / 2);
+        var endX = playerX + (hitZoneWidth / 2);
+        
+        // 1. 成功接住判定
+        if (items[i].y > canvas.height - 140 && items[i].y < canvas.height - 80) {
+            if (items[i].x > startX && items[i].x < endX) {
+                if (items[i].isBomb) {
+                    score = Math.max(0, score - 10);
+                    popText(items[i].x, items[i].y, "-10", "#90A4AE");
+                } else {
+                    score += 5;
+                    popText(items[i].x, items[i].y, "+5", "#FFB74D");
+                }
+                updateScoreDisplay();
+                items.splice(i, 1);
+                if (score >= 100) victory();
+                continue;
+            }
+        }
+
+        // 2. 落地判定
+        if (items[i].y > canvas.height - 20) {
+            if (!items[i].isBomb) {
+                score = Math.max(0, score - 5);
+                popText(items[i].x, canvas.height - 50, "-5 (漏掉啦!)", "#E57373");
+                updateScoreDisplay();
+            }
+            items.splice(i, 1);
+        }
+    }
+    
+    // 特效文字更新
+    for (var j = 0; j < floatingTexts.length; j++) {
+        floatingTexts[j].y -= 1.2;
+        floatingTexts[j].life -= 0.015;
+    }
+    floatingTexts = floatingTexts.filter(function(f) { return f.life > 0; });
+}
+
+function updateScoreDisplay() {
+    document.getElementById('score-text').innerText = score;
+}
+
+function draw() {
+    // 每一幀開始都要強制重置透明度，解決「半透明」問題
+    ctx.globalAlpha = 1.0;
+    
+    drawBackground();
+    
+    // 畫好朋友 (企鵝與小熊)
+    ctx.font = "60px Arial";
+    ctx.textAlign = "center";
+    var startPos = playerX - 40;
+    friends.forEach(function(f, idx) {
+        var x = startPos + (idx * 80);
+        var y = canvas.height - 100;
+        
+        // 角色影子
+        ctx.fillStyle = "rgba(0,0,0,0.1)";
+        ctx.beginPath(); ctx.ellipse(x, y + 20, 30, 10, 0, 0, 7); ctx.fill();
+        
+        // 角色與籃子
+        ctx.fillStyle = "black";
+        ctx.fillText(f, x, y);
+        ctx.font = "40px Arial";
+        ctx.fillText("🧺", x, y - 50);
+        ctx.font = "60px Arial";
+    });
+
+    // 畫掉落水果
+    ctx.font = "45px Arial";
+    items.forEach(function(it) {
+        ctx.fillText(it.char, it.x, it.y);
+    });
+
+    // 畫漂浮特效文字
+    floatingTexts.forEach(function(ft) {
+        ctx.globalAlpha = ft.life;
+        ctx.fillStyle = ft.color;
+        ctx.font = "bold 20px Arial";
+        ctx.fillText(ft.text, ft.x, ft.y);
+    });
+    
+    ctx.globalAlpha = 1.0; // 結束前再次重置
+
+    if (isGaming) {
+        update();
+        requestAnimationFrame(draw);
+    }
+}
+
+function popText(x, y, txt, col) {
+    var fullText = txt + " (總分: " + score + ")";
+    floatingTexts.push({ x: x, y: y, text: fullText, color: col, life: 1 });
+}
+
+function move(ev) {
+    var x = ev.touches ? ev.touches[0].clientX : ev.clientX;
+    playerX = x;
+    // 邊界保護，不讓朋友跑出螢幕
+    if (playerX < 80) playerX = 80;
+    if (playerX > canvas.width - 80) playerX = canvas.width - 80;
+}
+
+function startGame() {
+    document.getElementById('start-mask').style.display = 'none';
+    isGaming = true;
+    score = 0;
+    items = [];
+    floatingTexts = [];
+    updateScoreDisplay();
+    init();
+    requestAnimationFrame(draw);
+}
+
+function victory() {
+    isGaming = false;
+    document.getElementById('final-score').innerText = "大家合作拿到 100 分！";
+    document.getElementById('result-modal').style.display = 'flex';
+    try { localStorage.setItem('fruit_score', 100); } catch(err){}
+}
+
+// 監聽器
+var startBtn = document.getElementById('start-btn');
+startBtn.addEventListener('click', startGame);
+startBtn.addEventListener('pointerdown', startGame);
+
+window.addEventListener('pointermove', move);
+window.addEventListener('touchmove', function(e){ e.preventDefault(); move(e); }, {passive:false});
+window.addEventListener('resize', init);
+
+// 預先校準
+init();
+</script>
+</body>
+</html>
