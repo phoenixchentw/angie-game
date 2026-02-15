@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>恩恩的遊戲樂園 - EnEnGram</title>
+    
+    <style>
+        /* 1. 基礎設定 */
+        body {
+            background-color: #FAFAFA;
+            font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", sans-serif;
+            margin: 0; padding: 0;
+            display: flex; justify-content: center;
+            min-height: 100vh; color: #262626;
+        }
+
+        .app-container {
+            width: 100%; max-width: 500px;
+            background-color: #FFFFFF; min-height: 100vh;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            position: relative; padding-bottom: 60px;
+        }
+
+        /* 2. Emoji 封面藝術 (CSS Art) */
+        .emoji-cover {
+            width: 100%; aspect-ratio: 1 / 1;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            position: relative; overflow: hidden;
+            text-decoration: none; transition: transform 0.2s;
+        }
+        .emoji-cover:active { transform: scale(0.98); }
+
+        .emoji-main { font-size: 80px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2)); z-index: 2; }
+        .emoji-title { color: white; font-size: 26px; font-weight: bold; margin-top: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.3); z-index: 2; }
+        .emoji-decor { position: absolute; font-size: 80px; opacity: 0.2; z-index: 1; user-select: none; }
+
+        /* 遊戲顏色主題 */
+        .cover-math { background: linear-gradient(135deg, #FFCA28 0%, #FF6F00 100%); }
+        .cover-forest { background: linear-gradient(135deg, #81C784 0%, #2E7D32 100%); }
+
+        /* 3. 介面樣式 */
+        .top-bar {
+            height: 50px; display: flex; align-items: center; justify-content: space-between;
+            padding: 0 15px; border-bottom: 1px solid #DBDBDB; background: #fff;
+            position: sticky; top: 0; z-index: 100;
+        }
+        .logo { font-size: 1.5rem; font-weight: bold; font-family: cursive; color: #d62976; }
+
+        .post-card { border-bottom: 1px solid #DBDBDB; padding-bottom: 15px; margin-bottom: 10px; }
+        .post-header { padding: 10px 15px; display: flex; align-items: center; font-weight: bold; font-size: 14px; }
+        .avatar-small { width: 32px; height: 32px; border-radius: 50%; background: #eee; margin-right: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+
+        .post-info { padding: 10px 15px; }
+        .score-badge { background: #f0f0f0; padding: 2px 8px; border-radius: 10px; font-size: 12px; color: #666; }
+
+        .bottom-nav { position: fixed; bottom: 0; width: 100%; max-width: 500px; height: 50px; background: #fff; border-top: 1px solid #DBDBDB; display: flex; justify-content: space-around; align-items: center; font-size: 24px; z-index: 100; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    
+    <div class="top-bar">
+        <div class="logo">EnEnGram</div>
+        <div style="font-size: 20px;">🔔</div>
+    </div>
+
+    <div class="feed">
+        
+        <div class="post-card">
+            <div class="post-header">
+                <div class="avatar-small">🧮</div>
+                <span>math_wizard</span>
+            </div>
+
+            <a href="math_game.html" class="emoji-cover cover-math">
+                <div class="emoji-decor" style="top: -10px; left: -10px;">➕</div>
+                <div class="emoji-decor" style="bottom: -10px; right: -10px;">➖</div>
+                <div class="emoji-main">🐧</div>
+                <div class="emoji-title">數學大冒險</div>
+            </a>
+
+            <div class="post-info">
+                <span class="score-badge">最高紀錄：<span id="math-score">0</span> 分</span>
+                <p><b>math_wizard</b> 挑戰 20 以內的加減法，恩恩加油！</p>
+            </div>
+        </div>
+
+        <div class="post-card">
+            <div class="post-header">
+                <div class="avatar-small">🌲</div>
+                <span>forest_explorer</span>
+            </div>
+
+            <a href="map_game.html" class="emoji-cover cover-forest">
+                <div class="emoji-decor" style="top: 10%; right: 5%;">🦋</div>
+                <div class="emoji-decor" style="bottom: 5%; left: 10%;">🍄</div>
+                <div class="emoji-main">🗺️</div>
+                <div class="emoji-title">森林大探險</div>
+            </a>
+
+            <div class="post-info">
+                <span class="score-badge">上次得分：<span

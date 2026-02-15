@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>數學大冒險</title>
+    <style>
+        /* --- 1. 基礎設定 --- */
+        body {
+            background-color: #FFF3E0;
+            font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .game-card {
+            background: white;
+            width: 100%;
+            max-width: 480px;
+            height: 100vh;
+            max-height: 800px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        @media (min-width: 500px) {
+            .game-card { height: 90vh; border-radius: 20px; }
+        }
+
+        /* --- 2. 頂部導航 --- */
+        .header {
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #FF9800;
+            color: white;
+            font-weight: bold;
+            font-size: 1.1rem;
+            z-index: 10;
+        }
+
+        .btn-icon {
+            cursor: pointer;
+            background: rgba(255,255,255,0.2);
+            padding: 8px 12px;
+            border-radius: 15px;
+            text-decoration: none;
+            color: white;
+            border: none;
+            font-size: 1rem;
+        }
+
+        /* --- 3. 進度條 (灰色底，綠色條) --- */
+        .progress-container { width: 100%; height: 12px; background: #EEE; }
+        .progress-bar { 
+            height: 100%; 
+            background: #4CAF50; /* 綠色 */
+            width: 0%; /* 預設 0% */
+            transition: width 0.5s cubic-bezier(0.4, 0.0, 0.2, 1); /* 滑順動畫 */
+            border-radius: 0 4px 4px 0;
+        }
+
+        /* --- 4. 遊戲區 --- */
+        .game-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 5;
+        }
+
+        .equation {
+            font-size: 4rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .answer-box {
+            width: 80px; height: 80px;
+            border: 4px dashed #FF9800;
+            border-radius: 15px;
+            display: flex; align-items: center; justify-content: center;
+            color: #FF9800; background: #FFF8E1;
+            font-size: 2.5rem;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            width: 90%;
+            padding-bottom: 30px;
+        }
+
+        .opt-btn {
+            background: #FAFAFA;
+            border: 3px solid #E0E0E0;
+            border-radius: 20px;
+            padding: 20px;
+            font-size: 2.5rem;
+            color: #555;
+            cursor: pointer;
+            font-weight: bold;
+            position: relative;
+        }
+        .opt-btn:active { transform: scale(0.95); }
+        .opt-btn.correct { background: #C8E6C9; border-color: #4CAF50; color: #2E7D32; }
+        .opt-btn.wrong { background: #FFCDD2; border-color: #EF5350; color: #C62828; }
+        .opt-btn.disabled { pointer-events: none; opacity: 0.6; }
+
+        /* --- 5. 彈窗與按鈕 --- */
+        .modal-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            justify-content: center; align-items: center;
+            z-index: 100;
+            flex-direction: column;
+        }
+
+        .modal-content {
+            background: white; padding: 30px; border-radius: 20px;
+            width: 80%; max-width: 350px; text-align: center;
+        }
+
+        .setting-row { margin-bottom: 15px; text-align: left; }
+        .setting-label { font-weight: bold; display: block; margin-bottom: 5px; }
+        .setting-input { width: 100%; padding: 8px; font-size: 1.2rem; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; }
+        
+        .toggle-group { display: flex; gap: 10px; justify-content: center; }
+        .toggle-btn {
+            flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 8px; background: #eee; cursor: pointer;
+        }
+        .toggle-btn.active { background: #2196F3; color: white; border-color: #2196F3; }
+
+        /* 統一按鈕樣式 (修復寬度問題) */
+        .action-btn {
+            display: block; width: 100%; box-sizing: border-box;
+            background: #4CAF50; color: white; padding: 15px 0;
+            font-size: 1.2rem; border: none; border-radius: 50px;
+            cursor: pointer; margin-top: 15px; text-decoration: none;
+            text-align: center; font-family: inherit;
+        }
+        .action-btn.secondary { background: #757575; }
+        .action-btn:active { transform: scale(0.98); }
+
+        /* 特效畫布 */
+        #fx-canvas {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 50;
+        }
+
+        /* 啟動遮罩 */
+        #start-mask {
+            display: flex; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 999; justify-content: center; align-items: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-card">
+        <canvas id="fx-canvas"></canvas>
+
+        <div class="header">
+            <a href="index.html" class="btn-icon">🏠 大廳</a>
+            <div style="flex: 1; text-align: center;">分數: <span id="scoreDisplay">0</span></div>
+            <button class="btn-icon" onclick="openSettings()">⚙️ 設定</button>
+        </div>
+
+        <div class="progress-container">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+
+        <div class="game-area">
+            <div style="height: 30px; color: #FF9800; font-weight: bold;" id="msgBox">準備開始...</div>
+            
+            <div class="equation">
+                <span id="numA">?</span>
+                <span id="operator">+</span>
+                <span id="numB">?</span>
+                <span>=</span>
+                <div class="answer-box" id="ansBox">?</div>
+            </div>
+
+            <div class="options-grid" id="optionsGrid"></div>
+        </div>
+
+        <div class="modal-overlay" id="settingsModal">
+            <div class="modal-content">
+                <h2>⚙️ 遊戲設定</h2>
+                <div class="setting-row">
+                    <label class="setting-label">數字最大值:</label>
+                    <input type="number" id="inputMax" class="setting-input" value="20">
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label">運算符號:</label>
+                    <div class="toggle-group">
+                        <div class="toggle-btn active" data-op="+" onclick="toggleOp(this)">➕</div>
+                        <div class="toggle-btn active" data-op="-" onclick="toggleOp(this)">➖</div>
+                        <div class="toggle-btn" data-op="*" onclick="toggleOp(this)">✖️</div>
+                        <div class="toggle-btn" data-op="/" onclick="toggleOp(this)">➗</div>
+                    </div>
+                </div>
+                <button class="action-btn" onclick="saveSettings()">儲存並重新開始</button>
+                <button class="action-btn secondary" onclick="closeSettings()">取消</button>
+            </div>
+        </div>
+
+        <div class="modal-overlay" id="resultModal">
+            <div class="modal-content">
+                <h1 style="font-size: 4rem; margin: 0;">🏆</h1>
+                <h2>挑戰成功！</h2>
+                <p style="font-size: 1.5rem; color: #555;">總分：<b style="color:#FF9800; font-size: 2rem;" id="finalScore">0</b></p>
+                <button class="action-btn" onclick="restartGame()">再玩一次</button>
+                <a href="index.html" class="action-btn secondary">回到大廳</a>
+            </div>
+        </div>
+
+        <div id="start-mask">
+            <button class="action-btn" style="width: auto; padding: 20px 40px;" onclick="startGame()">▶️ 開始遊戲</button>
+        </div>
+    </div>
+
+<script>
+    // --- 1. 特效系統 ---
+    const canvas = document.getElementById('fx-canvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function createExplosion(x, y, color) {
+        for (let i = 0; i < 30; i++) {
+            particles.push({
+                x: x, y: y,
+                vx: (Math.random() - 0.5) * 15,
+                vy: (Math.random() - 0.5) * 15,
+                color: color || `hsl(${Math.random()*360}, 100%, 50%)`,
+                life: 50,
+                size: Math.random() * 5 + 2
+            });
+        }
+    }
+
+    function fireConfetti() {
+        let interval = setInterval(() => {
+            createExplosion(Math.random() * canvas.width, Math.random() * canvas.height * 0.8);
+        }, 150);
+        setTimeout(() => clearInterval(interval), 2000);
+    }
+
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for (let i = 0; i < particles.length; i++) {
+            let p = particles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.5; p.life--; p.size *= 0.95;
+            ctx.fillStyle = p.color;
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+        }
+        particles = particles.filter(p => p.life > 0);
+        requestAnimationFrame(animate);
+    }
+    animate();
+
+    // --- 2. 遊戲邏輯 ---
+    let config = { maxNum: 20, ops: ['+', '-'], totalQ: 10 };
+    let state = { idx: 0, score: 0, ans: 0, retry: false, locked: false };
+
+    function startGame() {
+        document.getElementById('start-mask').style.display = 'none';
+        init();
+    }
+
+    function init() {
+        state.idx = 0;
+        state.score = 0;
+        updateUI();
+        nextQuestion();
+    }
+
+    function updateUI() {
+        document.getElementById('scoreDisplay').innerText = state.score;
+        // --- 進度條修正邏輯 ---
+        // 剛開始 state.idx = 0 -> 0%
+        // 答完第1題 state.idx = 1 -> 10%
+        // ...
+        // 答完第10題 state.idx = 10 -> 100%
+        let pct = (state.idx / config.totalQ) * 100;
+        document.getElementById('progressBar').style.width = pct + "%";
+    }
+
+    function nextQuestion() {
+        if (state.idx >= config.totalQ) {
+            endGame();
+            return;
+        }
+
+        state.retry = false;
+        state.locked = false;
+        document.getElementById('msgBox').innerText = `第 ${state.idx + 1} / ${config.totalQ} 題`;
+        document.getElementById('ansBox').innerText = "?";
+        document.getElementById('ansBox').style.color = "#FF9800";
+        // 注意：這裡不呼叫 updateUI()，因為進度條應該在「答對後」才增加
+        // 但為了確保重新開始時歸零，init() 裡有呼叫
+
+        let max = parseInt(config.maxNum);
+        if (isNaN(max) || max < 5) max = 20;
+        if (config.ops.length === 0) config.ops = ['+'];
+
+        let op = config.ops[Math.floor(Math.random() * config.ops.length)];
+        let a, b, ans;
+
+        // --- 數值防呆：移除 0 (範圍 1 ~ Max) ---
+        switch(op) {
+            case '+':
+                ans = Math.floor(Math.random() * (max - 1)) + 2; 
+                a = Math.floor(Math.random() * (ans - 1)) + 1;
+                b = ans - a;
+                break;
+            case '-':
+                a = Math.floor(Math.random() * (max - 1)) + 2;
+                b = Math.floor(Math.random() * (a - 1)) + 1;
+                ans = a - b;
+                break;
+            case '*':
+                a = Math.floor(Math.random() * 9) + 1; // 1~9
+                b = Math.floor(Math.random() * 9) + 1;
+                ans = a * b;
+                break;
+            case '/':
+                b = Math.floor(Math.random() * 9) + 1;
+                ans = Math.floor(Math.random() * 9) + 1;
+                a = ans * b;
+                break;
+        }
+
+        state.ans = ans;
+        document.getElementById('numA').innerText = a;
+        document.getElementById('numB').innerText = b;
+        let opDisplay = (op === '*') ? '×' : (op === '/') ? '÷' : op;
+        document.getElementById('operator').innerText = opDisplay;
+
+        generateOptions(ans);
+    }
+
+    function generateOptions(correct) {
+        let opts = new Set();
+        opts.add(correct);
+        let safety = 0;
+        while (opts.size < 4 && safety < 50) {
+            let diff = Math.floor(Math.random() * 5) + 1;
+            let val = Math.random() > 0.5 ? correct + diff : correct - diff;
+            if (val >= 1) opts.add(val); // 選項也不要有 0
+            safety++;
+        }
+        if (opts.size < 4) [1, 2, 3, 4, 5].forEach(n => opts.add(n));
+        
+        let arr = Array.from(opts).slice(0, 4).sort(() => Math.random() - 0.5);
+        const grid = document.getElementById('optionsGrid');
+        grid.innerHTML = "";
+        arr.forEach(num => {
+            let btn = document.createElement('div');
+            btn.className = 'opt-btn';
+            btn.innerText = num;
+            btn.onclick = (e) => checkAnswer(btn, num);
+            grid.appendChild(btn);
+        });
+    }
+
+    function checkAnswer(btn, val) {
+        if (state.locked) return;
+
+        if (val === state.ans) {
+            btn.classList.add('correct');
+            document.getElementById('ansBox').innerText = state.ans;
+            
+            // 答對特效 (噴彩帶)
+            let rect = btn.getBoundingClientRect();
+            createExplosion(rect.left + rect.width/2, rect.top + rect.height/2, '#4CAF50');
+
+            if (!state.retry) state.score += 10;
+            state.locked = true;
+
+            setTimeout(() => {
+                state.idx++; // 增加進度
+                updateUI();  // 更新進度條 (現在變成 10%, 20%...)
+                nextQuestion();
+            }, 1000);
+
+        } else {
+            btn.classList.add('wrong');
+            btn.classList.add('disabled');
+            if (!state.retry) {
+                state.retry = true;
+                document.getElementById('msgBox').innerText = "再試一次！💪";
+            } else {
+                state.locked = true;
+                document.getElementById('msgBox').innerText = "正確答案是 " + state.ans;
+                document.getElementById('ansBox').innerText = state.ans;
+                document.getElementById('ansBox').style.color = "red";
+                setTimeout(() => {
+                    state.idx++;
+                    updateUI(); // 答錯也要更新進度
+                    nextQuestion();
+                }, 2000);
+            }
+        }
+    }
+
+    function endGame() {
+        document.getElementById('progressBar').style.width = "100%"; // 確保補滿
+        document.getElementById('finalScore').innerText = state.score;
+        document.getElementById('resultModal').style.display = 'flex';
+        fireConfetti();
+        try { localStorage.setItem('math_last_score', state.score); } catch(e) {}
+    }
+
+    function restartGame() {
+        document.getElementById('resultModal').style.display = 'none';
+        init();
+    }
+
+    function openSettings() {
+        document.getElementById('settingsModal').style.display = 'flex';
+        document.getElementById('inputMax').value = config.maxNum;
+        document.querySelectorAll('.toggle-btn').forEach(btn => {
+            if (config.ops.includes(btn.dataset.op)) btn.classList.add('active');
+            else btn.classList.remove('active');
+        });
+    }
+    function closeSettings() { document.getElementById('settingsModal').style.display = 'none'; }
+    function toggleOp(btn) { btn.classList.toggle('active'); }
+    function saveSettings() {
+        let max = parseInt(document.getElementById('inputMax').value);
+        if (max < 5) { alert("至少設 5 喔！"); return; }
+        config.maxNum = max;
+        config.ops = [];
+        document.querySelectorAll('.toggle-btn.active').forEach(btn => config.ops.push(btn.dataset.op));
+        if (config.ops.length === 0) { alert("至少選一個符號"); return; }
+        closeSettings();
+        init();
+    }
+</script>
+</body>
+</html>

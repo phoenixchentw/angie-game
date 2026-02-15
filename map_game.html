@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>森林探險：完美物理與視覺版</title>
+    <style>
+        :root { 
+            --forest-bg: #1B3022; 
+            --path-color: #5D4037; 
+            --active-gold: #FFC107; 
+            --ui-blue: #2196F3;
+            --path-locked: rgba(255, 255, 255, 0.15); 
+        }
+        body { margin: 0; overflow: hidden; background: var(--forest-bg); font-family: "Microsoft JhengHei", sans-serif; touch-action: none; }
+        #game-wrapper { position: relative; width: 100vw; height: 100vh; }
+        canvas { display: block; cursor: grab; }
+
+        #ui-layer { position: absolute; top: 20px; left: 20px; color: white; pointer-events: none; z-index: 10; }
+        .score-tag { font-size: 24px; font-weight: bold; text-shadow: 2px 2px 4px black; }
+
+        #observe-nav {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            display: none; gap: 15px; z-index: 150; padding: 12px 25px;
+            background: rgba(0, 0, 0, 0.7); border-radius: 50px;
+            border: 1px solid rgba(255,255,255,0.3); backdrop-filter: blur(5px);
+        }
+
+        #choice-overlay {
+            position: absolute; left: 50%; transform: translateX(-50%);
+            display: none; gap: 15px; z-index: 50; padding: 15px;
+            background: rgba(0,0,0,0.5); border-radius: 50px;
+        }
+        .choice-btn {
+            background: var(--ui-blue); color: white; border: 3px solid white;
+            padding: 12px 25px; font-size: 18px; border-radius: 30px;
+            cursor: pointer; box-shadow: 0 4px 0 #1565C0;
+        }
+
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 100; flex-direction: column; }
+        
+        .modal-content {
+            background: white; padding: 30px; border-radius: 25px; text-align: center; 
+            width: 280px; display: flex; flex-direction: column; gap: 15px;
+        }
+        .btn-main { 
+            background: #4CAF50; color: white; border: none; padding: 12px 24px; 
+            font-size: 18px; border-radius: 50px; cursor: pointer; 
+            box-shadow: 0 4px 0 #2E7D32; text-decoration: none; display: block;
+            font-family: inherit; font-weight: bold;
+        }
+        .btn-secondary { background: #757575; box-shadow: 0 4px 0 #424242; }
+    </style>
+</head>
+<body>
+
+<div id="game-wrapper">
+    <div id="ui-layer">
+        <div class="score-tag">冒險得分: <span id="current-score">?</span></div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="choice-overlay"></div>
+
+    <div id="observe-nav">
+        <button class="btn-main" style="padding: 8px 18px; font-size: 15px;" onclick="location.reload()">再玩一次</button>
+        <a href="index.html" class="btn-main btn-secondary" style="padding: 8px 18px; font-size: 15px;">回到大廳</a>
+    </div>
+
+    <div id="start-mask" class="overlay">
+        <h1 style="color:white; margin-bottom:10px;">🌲 森林探險</h1>
+        <button class="btn-main" onclick="startGame()">▶️ 進入森林</button>
+    </div>
+
+    <div id="result-modal" class="overlay" style="display:none; background: rgba(0,0,0,0.5);">
+        <div class="modal-content">
+            <h2 style="color:#333; margin:0;">抵達終點！</h2>
+            <p id="final-score-text" style="color:#FF9800; font-size:28px; font-weight:bold; margin:0;"></p>
+            <button class="btn-main" onclick="enterObserveMode()">🔍 觀察地圖 (自由縮放)</button>
+            <button class="btn-main" onclick="location.reload()">再玩一次</button>
+            <a href="index.html" class="btn-main btn-secondary">回到大廳</a>
+        </div>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const TOTAL_LEVELS = 5;
+const LEVEL_HEIGHT = window.innerHeight * 0.5; 
+const MAX_ANGLE_TAN = Math.tan(30 * Math.PI / 180);
+const PATH_FLARE = 0.4; 
+const MOVE_SPEED = 6; 
+const FOREST_EMOJIS = ['🌲', '🌳', '🍄', '🪵', '🌿', '🌸', '🪨', '🍃', '🐿️', '🦋', '🐞'];
+
+let nodes = [], edges = [];
+let player = { x: 0, y: 0, currentNode: null, targetNode: null, progress: 0, isMoving: false, trail: [], pathDistances: {d1:0, d2:0, total:0} };
+let camera = { x: 0, y: 0, scale: 1, targetScale: 1, isEnding: false, autoControl: false };
+let isGaming = false;
+let isDraggingMap = false;
+let lastMousePos = { x: 0, y: 0 };
+
+function generateMap() {
+    nodes = []; edges = [];
+    const scores = [100, 90, 80, 70, 60, 50, 40, 30, 20, 10].sort(() => Math.random() - 0.5);
+    let currentLevelNodes = [];
+    for(let i=0; i<10; i++) {
+        let n = { id:'e'+i, x:(i-4.5)*400, y:TOTAL_LEVELS * LEVEL_HEIGHT, type:'end', score:scores[i], children:[] };
+        nodes.push(n); currentLevelNodes.push(n);
+    }
+    for(let l = TOTAL_LEVELS-1; l >= 0; l--) {
+        let nextLevelNodes = [];
+        for(let i=0; i < currentLevelNodes.length; ) {
+            let count = (currentLevelNodes.length-i === 3) ? 3 : (Math.random()>0.5 ? 2 : 3);
+            if(i+count > currentLevelNodes.length) count = currentLevelNodes.length-i;
+            let children = currentLevelNodes.slice(i, i+count);
+            let avgX = children.reduce((s,n)=>s+n.x, 0) / children.length;
+            let maxShift = LEVEL_HEIGHT * MAX_ANGLE_TAN * 0.6;
+            let pX = avgX + (Math.random()*maxShift*2 - maxShift);
+            let p = { id:'n'+l+'_'+i, x:pX, y:l*LEVEL_HEIGHT, type:l===0?'start':'mid', children:children };
+            
+            children.forEach(c => {
+                let edgeEmojis = [];
+                // --- 修正 2：增加 Emoji 數量，每條路 2~4 個 ---
+                let num = Math.floor(Math.random() * 3) + 2; 
+                for(let k=0; k<num; k++) {
+                    edgeEmojis.push({
+                        char: FOREST_EMOJIS[Math.floor(Math.random() * FOREST_EMOJIS.length)],
+                        t: Math.random() * 0.8 + 0.1,
+                        // --- 修正：偏移量避開中心 40px，讓它在路徑兩側 ---
+                        offX: (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 40 + 45), 
+                        offY: Math.random() * 40 - 20
+                    });
+                }
+                edges.push({from:p, to:c, visited:false, locked:false, emojis: edgeEmojis});
+            });
+            nodes.push(p); nextLevelNodes.push(p); i += count;
+        }
+        currentLevelNodes = nextLevelNodes;
+    }
+    let root = nodes.find(n=>n.type==='start');
+    player.currentNode = root; player.x = root.x; player.y = root.y;
+    camera.x = player.x; camera.y = player.y;
+}
+
+function selectBranch(edge) {
+    document.getElementById('choice-overlay').style.display = 'none';
+    player.targetNode = edge.to;
+    player.isMoving = true;
+    player.progress = 0;
+    
+    // --- 修正 1：物理速度校準 ---
+    // 計算兩段路徑的精確長度
+    const f = player.currentNode, t = player.targetNode;
+    const flareY = f.y + (LEVEL_HEIGHT * PATH_FLARE);
+    const d1 = Math.hypot(t.x - f.x, flareY - f.y); // 斜線段長度
+    const d2 = Math.abs(t.y - flareY);             // 直線段長度
+    player.pathDistances = { d1: d1, d2: d2, total: d1 + d2 };
+
+    edges.filter(e => e.from === player.currentNode && e !== edge).forEach(e => e.locked = true);
+}
+
+function checkNextAction() {
+    let branches = edges.filter(e => e.from === player.currentNode && !e.locked);
+    if (branches.length === 1) setTimeout(() => selectBranch(branches[0]), 300);
+    else if (branches.length > 1) showChoiceUI(branches);
+}
+
+function showChoiceUI(branches) {
+    const o = document.getElementById('choice-overlay');
+    o.innerHTML = "";
+    branches.sort((a,b) => a.to.x - b.to.x);
+    branches.forEach((edge, i) => {
+        let btn = document.createElement('button');
+        btn.className = 'choice-btn';
+        btn.innerText = branches.length === 2 ? (i===0?"⬅️ 左":"➡️ 右") : (i===0?"⬅️ 左":i===1?"⬆️ 中":"➡️ 右");
+        btn.onclick = () => selectBranch(edge);
+        o.appendChild(btn);
+    });
+    o.style.display = 'flex';
+    o.style.bottom = "120px";
+}
+
+function update() {
+    if(!isGaming) return;
+    if(player.isMoving) {
+        // 每幀前進固定像素
+        const distPerFrame = MOVE_SPEED;
+        const totalDist = player.pathDistances.total;
+        player.progress += distPerFrame / totalDist; 
+        
+        player.trail.push({x:player.x, y:player.y, life:1});
+        if(player.progress >= 1) {
+            let edge = edges.find(e => e.from === player.currentNode && e.to === player.targetNode);
+            edge.visited = true;
+            player.x = player.targetNode.x; player.y = player.targetNode.y;
+            player.currentNode = player.targetNode; player.isMoving = false;
+            if(player.currentNode.type === 'end') finishGame();
+            else checkNextAction();
+        } else {
+            const from = player.currentNode, to = player.targetNode;
+            const currentTotalProgress = player.progress;
+            const d1 = player.pathDistances.d1;
+            const d2 = player.pathDistances.d2;
+            const total = player.pathDistances.total;
+            
+            // --- 修正：物理路徑座標映射 ---
+            // 判斷目前進度是在第一段還是第二段
+            const currentDist = currentTotalProgress * total;
+            
+            if(currentDist < d1) {
+                // 第一段：斜線
+                let t1 = currentDist / d1;
+                const flareY = from.y + (LEVEL_HEIGHT * PATH_FLARE);
+                player.x = from.x + (to.x - from.x) * t1;
+                player.y = from.y + (flareY - from.y) * t1;
+            } else {
+                // 第二段：直線
+                let t2 = (currentDist - d1) / d2;
+                const flareY = from.y + (LEVEL_HEIGHT * PATH_FLARE);
+                player.x = to.x;
+                player.y = flareY + (to.y - flareY) * t2;
+            }
+        }
+    }
+    player.trail.forEach(t => t.life -= 0.05);
+    player.trail = player.trail.filter(t => t.life > 0);
+    
+    if(!camera.isEnding) {
+        camera.y += (player.y + window.innerHeight * 0.2 - camera.y) * 0.1;
+        camera.x += (player.x - camera.x) * 0.1;
+    } else if (camera.autoControl) {
+        camera.scale += (camera.targetScale - camera.scale) * 0.05;
+        camera.y += (LEVEL_HEIGHT * 2.5 - camera.y) * 0.05;
+        camera.x += (0 - camera.x) * 0.05;
+    }
+}
+
+function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.translate(canvas.width/2, canvas.height/2);
+    ctx.scale(camera.scale, camera.scale);
+    ctx.translate(-camera.x, 0); 
+    
+    ctx.font = '24px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    edges.forEach(e => {
+        let f = e.from, t = e.to;
+        let flareY = f.y + (LEVEL_HEIGHT * PATH_FLARE);
+        ctx.beginPath();
+        ctx.moveTo(f.x, -(f.y - camera.y));
+        ctx.lineTo(t.x, -(flareY - camera.y));
+        ctx.lineTo(t.x, -(t.y - camera.y));
+        if (e.visited) ctx.strokeStyle = '#ffeb3b';
+        else if (e.locked) ctx.strokeStyle = 'rgba(255,255,255,0.15)'; 
+        else ctx.strokeStyle = 'rgba(93, 64, 55, 0.6)';
+        ctx.lineWidth = 15; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.stroke();
+
+        e.emojis.forEach(emo => {
+            let progress = emo.t;
+            let ex, ey;
+            const d1 = Math.hypot(t.x - f.x, (f.y + LEVEL_HEIGHT * PATH_FLARE) - f.y);
+            const d2 = Math.abs(t.y - (f.y + LEVEL_HEIGHT * PATH_FLARE));
+            const total = d1 + d2;
+            const currentDist = progress * total;
+
+            if(currentDist < d1) {
+                let t1 = currentDist / d1;
+                ex = f.x + (t.x - f.x) * t1;
+                ey = f.y + (LEVEL_HEIGHT * PATH_FLARE) * t1;
+            } else {
+                let t2 = (currentDist - d1) / d2;
+                ex = t.x;
+                ey = (f.y + LEVEL_HEIGHT * PATH_FLARE) + (LEVEL_HEIGHT * (1-PATH_FLARE)) * (t2 * LEVEL_HEIGHT * (1-PATH_FLARE) / (LEVEL_HEIGHT * (1-PATH_FLARE))); 
+                // 簡化計算
+                ey = (f.y + LEVEL_HEIGHT * PATH_FLARE) + (t.y - (f.y + LEVEL_HEIGHT * PATH_FLARE)) * t2;
+            }
+            ctx.fillText(emo.char, ex + emo.offX, -(ey - camera.y) + emo.offY);
+        });
+    });
+
+    nodes.forEach(n => {
+        let sy = -(n.y - camera.y);
+        if(n.type === 'end') {
+            ctx.fillStyle = '#ffc107';
+            ctx.beginPath(); ctx.arc(n.x, sy, 35, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = 'black'; ctx.font='bold 22px Arial'; ctx.textAlign='center';
+            ctx.fillText(camera.isEnding ? n.score : "?", n.x, sy+8);
+        } else {
+            ctx.fillStyle = '#5d4037';
+            ctx.beginPath(); ctx.arc(n.x, sy, 8, 0, Math.PI*2); ctx.fill();
+        }
+    });
+
+    let py = -(player.y - camera.y);
+    player.trail.forEach(t => {
+        ctx.fillStyle = `rgba(255,255,255,${t.life * 0.4})`;
+        ctx.beginPath(); ctx.arc(t.x, -(t.y - camera.y), 10 * t.life, 0, Math.PI*2); ctx.fill();
+    });
+    ctx.fillStyle = 'red'; ctx.shadowBlur=15; ctx.shadowColor='red';
+    ctx.beginPath(); ctx.arc(player.x, py, 22, 0, Math.PI*2); ctx.fill();
+    
+    if (camera.isEnding) {
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = 'white'; ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center';
+        ctx.fillText(player.currentNode.score, player.x, py + 7);
+    }
+    ctx.restore();
+}
+
+canvas.addEventListener('mousedown', e => { if(!camera.isEnding) return; isDraggingMap = true; camera.autoControl = false; lastMousePos = { x: e.clientX, y: e.clientY }; });
+window.addEventListener('mousemove', e => {
+    if(!isDraggingMap) return;
+    camera.x -= (e.clientX - lastMousePos.x) / camera.scale;
+    camera.y += (e.clientY - lastMousePos.y) / camera.scale;
+    lastMousePos = { x: e.clientX, y: e.clientY };
+});
+window.addEventListener('mouseup', () => isDraggingMap = false);
+canvas.addEventListener('wheel', e => {
+    if(!camera.isEnding) return;
+    camera.autoControl = false; 
+    if(e.deltaY < 0) camera.scale = Math.min(2, camera.scale + 0.1);
+    else camera.scale = Math.max(0.05, camera.scale - 0.1);
+}, { passive: true });
+
+function startGame() {
+    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+    document.getElementById('start-mask').style.display='none';
+    document.getElementById('observe-nav').style.display='none';
+    generateMap();
+    isGaming = true; camera.isEnding = false; camera.scale = 1; camera.targetScale = 1;
+    camera.autoControl = false;
+    canvas.onclick = (e) => {
+        if(camera.isEnding || player.isMoving || document.getElementById('choice-overlay').style.display==='flex') return;
+        checkNextAction();
+    };
+    function loop(){ update(); render(); requestAnimationFrame(loop); }
+    loop();
+}
+
+function finishGame() {
+    camera.isEnding = true;
+    camera.autoControl = false; 
+    document.getElementById('current-score').innerText = player.currentNode.score;
+    document.getElementById('final-score-text').innerText = "最終得分: " + player.currentNode.score;
+    setTimeout(() => { document.getElementById('result-modal').style.display='flex'; }, 800);
+}
+
+function enterObserveMode() {
+    document.getElementById('result-modal').style.display='none';
+    document.getElementById('observe-nav').style.display='flex';
+    camera.autoControl = true; 
+    camera.targetScale = 0.25;
+}
+</script>
+</body>
+</html>
