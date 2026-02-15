@@ -5,16 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>小企鵝投籃大賽</title>
     <style>
-        :root { 
-            --bg: #F5F5F5; 
-            --text: #546E7A; 
-            --ball: #FFAB91;
-            --hoop: #90A4AE;
-        }
+        :root { --bg: #F5F5F5; --text: #546E7A; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body, html { margin: 0; padding: 0; overflow: hidden; background: var(--bg); font-family: sans-serif; width: 100%; height: 100%; position: fixed; }
         #game-wrapper { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden; }
-        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; }
+        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; touch-action: none; }
 
         .home-btn {
             position: absolute; top: 15px; right: 15px; width: 44px; height: 44px;
@@ -26,7 +21,7 @@
 
         #hud { position: absolute; top: 20px; left: 20px; color: var(--text); z-index: 5000; pointer-events: none; }
         .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.9); display: flex; justify-content: center; align-items: center; z-index: 8000; flex-direction: column; }
-        .btn-real { background: #81C784; color: white; border: 3px solid white; padding: 18px 50px; font-size: 24px; border-radius: 60px; font-weight: bold; cursor: pointer; box-shadow: 0 5px 0 #66BB6A; }
+        .btn-real { background: #81C784; color: white; border: 3px solid white; padding: 18px 50px; font-size: 24px; border-radius: 60px; font-weight: bold; cursor: pointer; box-shadow: 0 5px 0 #66BB6A; outline: none; }
     </style>
 </head>
 <body>
@@ -34,23 +29,23 @@
 <div id="game-wrapper">
     <a href="index.html" class="home-btn">🏠</a>
     <div id="hud">
-        <div style="font-size: 20px; font-weight: bold;">投籃總分: <span id="score-text">0</span> / 100</div>
+        <div style="font-size: 20px; font-weight: bold;">得分: <span id="score-text">0</span> / 100</div>
     </div>
     
     <canvas id="gameCanvas"></canvas>
 
     <div id="start-mask" class="overlay">
-        <h1 style="color:var(--text); margin-bottom:10px;">🏀 小企鵝投籃</h1>
-        <p style="color:#78909C; margin-bottom:30px; text-align:center; padding: 0 20px;">
-            按住球向「下方」拉再放開！<br>
-            像拉彈弓一樣投籃。
+        <h1 style="color:var(--text); margin-bottom:10px;">🏀 投籃大師版</h1>
+        <p style="color:#78909C; margin-bottom:30px; text-align:center;">
+            連續投籃挑戰！<br>
+            球會自動出現，對準移動的籃框！
         </p>
-        <button class="btn-real" id="start-btn">開始比賽！</button>
+        <button class="btn-real" id="start-btn">開始比賽</button>
     </div>
 
     <div id="result-modal" class="overlay" style="display:none;">
         <div style="background: white; padding: 30px; border-radius: 25px; text-align: center; width: 85%; max-width: 320px;">
-            <h2 style="color:var(--text);">神射手通關！</h2>
+            <h2 style="color:var(--text);">恭喜通關！</h2>
             <p id="final-score" style="color:#FF8A80; font-size:28px; font-weight:bold; margin:15px 0;"></p>
             <button class="btn-real" style="font-size:18px; padding:12px 30px;" onclick="location.reload()">再玩一次</button>
             <a href="index.html" style="text-decoration:none; color:#90A4AE; font-weight:bold; display:block; margin-top:20px;">回到大廳</a>
@@ -64,63 +59,92 @@ var ctx = canvas.getContext('2d');
 var score = 0;
 var isGaming = false;
 
-// 物理與位置 (直屏優化)
+// 物理與物體
 var gravity = 0.28;
-var ball = { x: 0, y: 0, radius: 22, vx: 0, vy: 0, isFlying: false };
-var hoop = { x: 0, y: 0, width: 90, height: 10 };
-var targetX, targetY; // 初始位置
+var restitution = 0.65;
+var balls = []; 
+var hoop = { x: 0, y: 0, w: 90, h: 10, dir: 1, speed: 1.8 };
 
-// 操控
-var isDragging = false;
-var dragStart = { x: 0, y: 0 };
+// 基礎位置
+var startPos = { x: 0, y: 0 };
 var dragCurrent = { x: 0, y: 0 };
+var isDragging = false;
 var floatingTexts = [];
 
 function init() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     
-    // 直屏位置：球在下方 80%，籃框在上方 25%
-    targetX = canvas.width / 2;
-    targetY = canvas.height * 0.8;
+    startPos.x = canvas.width / 2;
+    startPos.y = canvas.height * 0.85;
     
-    hoop.x = (canvas.width / 2) - (hoop.width / 2);
     hoop.y = canvas.height * 0.25;
-
-    resetBall();
+    hoop.x = canvas.width / 2 - hoop.w / 2;
 }
 
-function resetBall() {
-    ball.x = targetX;
-    ball.y = targetY;
-    ball.vx = 0;
-    ball.vy = 0;
-    ball.isFlying = false;
+// --- 新增：美化背景繪製函數 ---
+function drawSmarterBackground() {
+    // 1. 天空漸層 (佔上面 80%)
+    var skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.8);
+    skyGrad.addColorStop(0, "#D7E8F0"); // 柔和藍灰
+    skyGrad.addColorStop(1, "#F0F4F8"); // 近乎白
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height * 0.8);
+
+    // 2. 地面 (佔下面 20%)
+    ctx.fillStyle = "#CFD8DC"; // 莫蘭迪灰地板
+    ctx.fillRect(0, canvas.height * 0.8, canvas.width, canvas.height * 0.2);
+
+    // 3. 地平線條
+    ctx.beginPath();
+    ctx.moveTo(0, canvas.height * 0.8);
+    ctx.lineTo(canvas.width, canvas.height * 0.8);
+    ctx.strokeStyle = "rgba(255,255,255,0.6)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
 }
 
 function update() {
     if (!isGaming) return;
 
-    if (ball.isFlying) {
-        ball.vy += gravity;
-        ball.x += ball.vx;
-        ball.y += ball.vy;
+    // 籃框移動
+    hoop.x += hoop.dir * hoop.speed;
+    if (hoop.x < 30 || hoop.x + hoop.w > canvas.width - 30) {
+        hoop.dir *= -1;
+    }
 
-        // 進球判定 (由上而下穿過籃框)
-        if (ball.vy > 0 && 
-            ball.x > hoop.x && ball.x < hoop.x + hoop.width &&
-            Math.abs(ball.y - hoop.y) < 20) {
-            
-            score += 10;
-            popText(canvas.width/2, hoop.y - 40, "+10 進球！", "#FFB74D");
-            document.getElementById('score-text').innerText = score;
-            resetBall();
-            if (score >= 100) victory();
+    // 更新飛行中的球
+    for (var i = balls.length - 1; i >= 0; i--) {
+        var b = balls[i];
+        b.vy += gravity;
+        b.x += b.vx;
+        b.y += b.vy;
+
+        // 天花板碰撞反彈
+        if (b.y - 22 < 0) {
+            b.y = 22;
+            b.vy = Math.abs(b.vy) * restitution;
         }
 
-        // 掉出螢幕重置
-        if (ball.y > canvas.height + 50 || ball.x < -50 || ball.x > canvas.width + 50) {
-            resetBall();
+        // 牆壁碰撞
+        if (b.x - 22 < 0 || b.x + 22 > canvas.width) {
+            b.vx = -b.vx * restitution;
+            b.x = b.x < 22 ? 22 : canvas.width - 22;
+        }
+
+        // 進球判定
+        if (b.vy > 0 && b.x > hoop.x && b.x < hoop.x + hoop.w && Math.abs(b.y - hoop.y) < 15) {
+            score += 10;
+            popText(hoop.x + hoop.w/2, hoop.y - 40, "+10 進球啦！", "#FFB74D");
+            document.getElementById('score-text').innerText = score;
+            balls.splice(i, 1);
+            if (score >= 100) victory();
+            continue;
+        }
+
+        // 移除出界球
+        if (b.y > canvas.height + 100) {
+            balls.splice(i, 1);
         }
     }
 
@@ -128,72 +152,92 @@ function update() {
     floatingTexts = floatingTexts.filter(function(ft) { return ft.life > 0; });
 }
 
-function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+function drawHoop() {
+    // 籃板
+    ctx.strokeStyle = "#546E7A"; ctx.lineWidth = 4;
+    ctx.strokeRect(hoop.x - 10, hoop.y - 60, hoop.w + 20, 60);
+    ctx.fillStyle = "rgba(255,255,255,0.4)";
+    ctx.fillRect(hoop.x - 10, hoop.y - 60, hoop.w + 20, 60);
 
-    // 1. 背景
-    ctx.fillStyle = "#E0F2F1";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // 籃網
+    ctx.strokeStyle = "rgba(255,255,255,0.7)"; ctx.lineWidth = 2;
+    ctx.setLineDash([2, 4]);
+    ctx.beginPath();
+    for(var j=0; j<=hoop.w; j+=20) {
+        ctx.moveTo(hoop.x + j, hoop.y);
+        ctx.lineTo(hoop.x + j + (j < hoop.w/2 ? 10 : -10), hoop.y + 35);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
 
-    // 2. 畫籃框 (直屏置中)
-    ctx.strokeStyle = "#FF7043";
-    ctx.lineWidth = 8;
-    ctx.lineCap = "round";
+    // 籃圈
+    ctx.strokeStyle = "#E53935"; ctx.lineWidth = 6; ctx.lineCap = "round";
     ctx.beginPath();
     ctx.moveTo(hoop.x, hoop.y);
-    ctx.lineTo(hoop.x + hoop.width, hoop.y);
+    ctx.lineTo(hoop.x + hoop.w, hoop.y);
     ctx.stroke();
+}
 
-    // 3. 畫輔助路徑 (拖動時)
-    if (isDragging) {
+function drawBall(x, y, radius, isShadow) {
+    ctx.globalAlpha = isShadow ? 0.3 : 1.0;
+    ctx.fillStyle = "#FFAB91";
+    ctx.beginPath(); ctx.arc(x, y, radius, 0, 7); ctx.fill();
+    ctx.strokeStyle = "#E64A19"; ctx.lineWidth = 2; ctx.stroke();
+}
+
+function draw() {
+    ctx.globalAlpha = 1.0;
+    // ctx.clearRect(0, 0, canvas.width, canvas.height); // 不需要了，因為背景會覆蓋
+
+    // --- 使用新的美化背景 ---
+    drawSmarterBackground();
+
+    drawHoop();
+
+    // 待命球與輔助線
+    if (!isDragging) {
+        drawBall(startPos.x, startPos.y, 22, false);
+    } else {
         ctx.setLineDash([5, 8]);
         ctx.strokeStyle = "rgba(84, 110, 122, 0.4)";
         ctx.beginPath();
-        ctx.moveTo(ball.x, ball.y);
-        var dx = dragStart.x - dragCurrent.x;
-        var dy = dragStart.y - dragCurrent.y;
-        // 畫出預期軌跡
-        ctx.lineTo(ball.x + dx * 1.5, ball.y + dy * 1.5);
+        ctx.moveTo(startPos.x, startPos.y);
+        var dx = startPos.x - dragCurrent.x;
+        var dy = startPos.y - dragCurrent.y;
+        ctx.lineTo(startPos.x + dx * 1.5, startPos.y + dy * 1.5);
         ctx.stroke();
         ctx.setLineDash([]);
+        drawBall(startPos.x, startPos.y, 22, false);
     }
 
-    // 4. 畫球 (莫蘭迪粉)
-    ctx.fillStyle = "#FFAB91";
-    ctx.beginPath();
-    ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI*2);
-    ctx.fill();
-    ctx.strokeStyle = "#E64A19";
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    // 飛行球
+    balls.forEach(function(b) {
+        drawBall(b.x, b.y, 22, false);
+    });
 
-    // 5. 畫特效文字
+    // 特效文字
     floatingTexts.forEach(function(ft) {
-        ctx.globalAlpha = ft.life;
-        ctx.fillStyle = ft.color;
-        ctx.font = "bold 24px Arial";
-        ctx.textAlign = "center";
+        ctx.globalAlpha = ft.life; ctx.fillStyle = ft.color;
+        ctx.font = "bold 24px Arial"; ctx.textAlign = "center";
         ctx.fillText(ft.text, ft.x, ft.y);
     });
     ctx.globalAlpha = 1.0;
 
-    if (isGaming) requestAnimationFrame(draw);
+    if (isGaming) {
+        update();
+        requestAnimationFrame(draw);
+    }
 }
 
 function popText(x, y, txt, col) {
-    floatingTexts.push({ x: x, y: y, text: txt + " (總分: "+score+")", color: col, life: 1 });
+    floatingTexts.push({ x: x, y: y, text: txt, color: col, life: 1 });
 }
 
-// --- 修正：更穩定的拖拽監聽器 ---
 function onPointerDown(e) {
-    if (!isGaming || ball.isFlying) return;
-    // 檢查是否點在球附近
-    var dist = Math.hypot(e.clientX - ball.x, e.clientY - ball.y);
-    if (dist < 60) {
-        isDragging = true;
-        dragStart = { x: e.clientX, y: e.clientY };
-        dragCurrent = { x: e.clientX, y: e.clientY };
-    }
+    if (!isGaming) return;
+    isDragging = true;
+    dragCurrent = { x: e.clientX, y: e.clientY };
+    e.target.setPointerCapture(e.pointerId);
 }
 
 function onPointerMove(e) {
@@ -205,14 +249,16 @@ function onPointerUp(e) {
     if (!isDragging) return;
     isDragging = false;
     
-    var dx = dragStart.x - dragCurrent.x;
-    var dy = dragStart.y - dragCurrent.y;
+    var dx = startPos.x - dragCurrent.x;
+    var dy = startPos.y - dragCurrent.y;
     
-    // 只有當拉動距離足夠時才發射
-    if (Math.hypot(dx, dy) > 20) {
-        ball.vx = dx * 0.12;
-        ball.vy = dy * 0.12;
-        ball.isFlying = true;
+    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+        balls.push({
+            x: startPos.x,
+            y: startPos.y,
+            vx: dx * 0.13,
+            vy: dy * 0.13
+        });
     }
 }
 
@@ -220,6 +266,7 @@ function startGame() {
     document.getElementById('start-mask').style.display = 'none';
     isGaming = true;
     score = 0;
+    balls = [];
     document.getElementById('score-text').innerText = score;
     init();
     draw();
@@ -227,16 +274,17 @@ function startGame() {
 
 function victory() {
     isGaming = false;
-    document.getElementById('final-score').innerText = "拿到 100 分通關了！";
+    document.getElementById('final-score').innerText = "合作拿到 100 分了！";
     document.getElementById('result-modal').style.display = 'flex';
+    try { localStorage.setItem('hoop_score', 100); } catch(e){}
 }
 
-// 監聽器綁定到 window 以確保 PC 端不會因為滑出畫布而失效
-window.addEventListener('pointerdown', onPointerDown);
-window.addEventListener('pointermove', onPointerMove);
-window.addEventListener('pointerup', onPointerUp);
-document.getElementById('start-btn').addEventListener('click', startGame);
+canvas.addEventListener('pointerdown', onPointerDown);
+canvas.addEventListener('pointermove', onPointerMove);
+canvas.addEventListener('pointerup', onPointerUp);
+canvas.addEventListener('pointercancel', onPointerUp);
 
+document.getElementById('start-btn').addEventListener('click', startGame);
 window.addEventListener('resize', init);
 window.addEventListener('touchmove', function(e){ if(isDragging) e.preventDefault(); }, {passive:false});
 

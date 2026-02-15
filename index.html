@@ -35,11 +35,12 @@
         .emoji-title { color: white; font-size: 28px; font-weight: bold; margin-top: 12px; text-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 2; }
         .emoji-decor { position: absolute; font-size: 80px; opacity: 0.15; z-index: 1; user-select: none; }
 
-        /* 莫蘭迪低彩度色調主題 */
+        /* 莫蘭迪低彩度主題配色 */
         .cover-math { background: linear-gradient(135deg, #FFD54F 0%, #FF8A65 100%); }
         .cover-forest { background: linear-gradient(135deg, #A5D6A7 0%, #66BB6A 100%); }
         .cover-brick { background: linear-gradient(135deg, #90CAF9 0%, #64B5F6 100%); }
-        .cover-fruit { background: linear-gradient(135deg, #C5E1A5 0%, #81C784 100%); } /* 新增：接水果色系 */
+        .cover-fruit { background: linear-gradient(135deg, #C5E1A5 0%, #81C784 100%); }
+        .cover-hoop { background: linear-gradient(135deg, #B39DDB 0%, #9575CD 100%); } /* 新增：薰衣草紫漸層 */
 
         /* 頂部導航列 */
         .top-bar {
@@ -49,7 +50,7 @@
         }
         .logo { font-size: 1.6rem; font-weight: bold; font-family: cursive, sans-serif; color: #d62976; }
 
-        /* 貼文卡片設計 */
+        /* 卡片設計 */
         .post-card { border-bottom: 1px solid #DBDBDB; padding-bottom: 20px; margin-bottom: 10px; }
         .post-header { padding: 12px 15px; display: flex; align-items: center; font-weight: 600; font-size: 14px; }
         .avatar-small { width: 34px; height: 34px; border-radius: 50%; background: #f0f0f0; margin-right: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; border: 1px solid #eee; }
@@ -68,11 +69,27 @@
     
     <div class="top-bar">
         <div class="logo">EnEnGram</div>
-        <div style="font-size: 22px;">🌟</div>
+        <div style="font-size: 22px;">🥇</div>
     </div>
 
     <div class="feed">
         
+        <div class="post-card">
+            <div class="post-header">
+                <div class="avatar-small">🏀</div>
+                <span>hoop_king</span>
+            </div>
+            <a href="hoop_game.html" class="emoji-cover cover-hoop">
+                <div class="emoji-decor" style="bottom: 10%; right: 10%;">🎯</div>
+                <div class="emoji-main">🏀</div>
+                <div class="emoji-title">投籃大挑戰</div>
+            </a>
+            <div class="post-info">
+                <span class="score-badge">🏀 神射手分數：<span id="hoop-score">0</span> / 100</span>
+                <p class="post-caption"><b>hoop_king</b> 瞄準移動籃框，連續投出完美拋物線！</p>
+            </div>
+        </div>
+
         <div class="post-card">
             <div class="post-header">
                 <div class="avatar-small">🍎</div>
@@ -84,8 +101,8 @@
                 <div class="emoji-title">小企鵝接水果</div>
             </a>
             <div class="post-info">
-                <span class="score-badge">🧺 團隊分數：<span id="fruit-score">0</span> / 100</span>
-                <p class="post-caption"><b>fruit_friends</b> 小企鵝和好朋友手牽手，大家一起接水果吧！</p>
+                <span class="score-badge">🧺 團隊總分：<span id="fruit-score">0</span> / 100</span>
+                <p class="post-caption"><b>fruit_friends</b> 企鵝和小熊手牽手，掉在地上的水果會扣分喔！</p>
             </div>
         </div>
 
@@ -100,8 +117,8 @@
                 <div class="emoji-title">打磚塊挑戰</div>
             </a>
             <div class="post-info">
-                <span class="score-badge">🔥 最佳戰績：<span id="brick-score">0</span> 分</span>
-                <p class="post-caption"><b>brick_master</b> 反彈紅球擊碎彩色磚塊，小心炸彈出沒！</p>
+                <span class="score-badge">🔥 最佳紀錄：<span id="brick-score">0</span> 分</span>
+                <p class="post-caption"><b>brick_master</b> 用球擊碎磚塊，挑戰得分極限！</p>
             </div>
         </div>
 
@@ -116,8 +133,8 @@
                 <div class="emoji-title">森林大探險</div>
             </a>
             <div class="post-info">
-                <span class="score-badge">🌟 探險得分：<span id="forest-score">0</span> 分</span>
-                <p class="post-caption"><b>forest_explorer</b> 進入神祕森林，選擇路徑尋找寶藏！</p>
+                <span class="score-badge">🌟 冒險進度：<span id="forest-score">0</span> 分</span>
+                <p class="post-caption"><b>forest_explorer</b> 探索神祕路徑，小心地圖中的重重挑戰！</p>
             </div>
         </div>
 
@@ -132,8 +149,8 @@
                 <div class="emoji-title">數學大冒險</div>
             </a>
             <div class="post-info">
-                <span class="score-badge">🏆 挑戰紀錄：<span id="math-score">0</span> 分</span>
-                <p class="post-caption"><b>math_wizard</b> 和企鵝一起挑戰加減法，腦袋轉轉轉！</p>
+                <span class="score-badge">🏆 最高戰績：<span id="math-score">0</span> 分</span>
+                <p class="post-caption"><b>math_wizard</b> 和小企鵝一起學加減法，聰明腦袋動起來！</p>
             </div>
         </div>
 
@@ -150,11 +167,12 @@
 
 <script>
     window.onload = function() {
-        // 同步所有遊戲的分數
+        // 同步所有遊戲的分數 (從各遊戲的 localStorage 讀取)
         document.getElementById('math-score').innerText = localStorage.getItem('math_last_score') || 0;
         document.getElementById('forest-score').innerText = localStorage.getItem('forest_score') || 0;
         document.getElementById('brick-score').innerText = localStorage.getItem('brick_score') || 0;
         document.getElementById('fruit-score').innerText = localStorage.getItem('fruit_score') || 0;
+        document.getElementById('hoop-score').innerText = localStorage.getItem('hoop_score') || 0;
     };
 </script>
 
