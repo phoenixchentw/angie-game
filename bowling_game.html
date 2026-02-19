@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>小企鵝保齡球：連續發球版</title>
+    <style>
+        :root { --bg: #ECEFF1; --text: #546E7A; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body, html { margin: 0; padding: 0; overflow: hidden; background: var(--bg); font-family: sans-serif; width: 100%; height: 100%; position: fixed; }
+        #game-wrapper { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden; }
+        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; touch-action: none; }
+        .home-btn {
+            position: absolute; top: 15px; right: 15px; width: 44px; height: 44px;
+            background: rgba(255, 255, 255, 0.4); border: 2px solid #fff; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            color: var(--text); font-size: 24px; text-decoration: none;
+            z-index: 10000; backdrop-filter: blur(5px);
+        }
+        #hud { position: absolute; top: 20px; left: 20px; color: var(--text); z-index: 5000; pointer-events: none; }
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.9); display: flex; justify-content: center; align-items: center; z-index: 8000; flex-direction: column; }
+        .btn-real { background: #81C784; color: white; border: 3px solid white; padding: 18px 50px; font-size: 24px; border-radius: 60px; font-weight: bold; cursor: pointer; box-shadow: 0 5px 0 #66BB6A; outline: none; }
+    </style>
+</head>
+<body>
+
+<div id="game-wrapper">
+    <a href="index.html" class="home-btn">🏠</a>
+    <div id="hud">
+        <div style="font-size: 20px; font-weight: bold;">恩恩的分數: <span id="score-text">0</span> / 100</div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="start-mask" class="overlay">
+        <h1 style="color:var(--text); margin-bottom:10px;">🎳 小企鵝保齡球</h1>
+        <p style="color:#78909C; margin-bottom:30px; text-align:center;">
+            連續發球模式！一球接一球，<br>
+            擊倒所有球瓶吧！
+        </p>
+        <button class="btn-real" id="start-btn">開始比賽</button>
+    </div>
+
+    <div id="result-modal" class="overlay" style="display:none;">
+        <div style="background: white; padding: 30px; border-radius: 25px; text-align: center; width: 85%; max-width: 320px;">
+            <h2 style="color:var(--text);">全倒大師！</h2>
+            <p id="final-score" style="color:#FF8A80; font-size:28px; font-weight:bold; margin:15px 0;"></p>
+            <button class="btn-real" style="font-size:18px; padding:12px 30px;" onclick="location.reload()">再玩一次</button>
+            <a href="index.html" style="text-decoration:none; color:#90A4AE; font-weight:bold; display:block; margin-top:20px;">回到大廳</a>
+        </div>
+    </div>
+</div>
+
+<script>
+var canvas = document.getElementById('gameCanvas');
+var ctx = canvas.getContext('2d');
+var score = 0;
+var isGaming = false;
+
+// 物理與多球參數
+var balls = []; 
+var pins = [];
+var floatingTexts = [];
+var lanePerspective = { topY: 150, bottomW: 0, topW: 0 };
+var readyPos = { x: 0, y: 0 }; // 等待發射的位置
+
+var isDragging = false;
+var dragStart = { x: 0, y: 0 };
+var dragCurrent = { x: 0, y: 0 };
+var lastPointer = { x: 0, y: 0, t: 0 };
+
+function init() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    lanePerspective.bottomW = canvas.width * 0.8;
+    lanePerspective.topW = canvas.width * 0.45;
+    
+    readyPos.x = canvas.width / 2;
+    readyPos.y = canvas.height - 130;
+    
+    resetPins();
+}
+
+function resetPins() {
+    pins = [];
+    var pinR = 16;
+    var startY = lanePerspective.topY + 50;
+    var rows = 4;
+    // 倒三角排列 (最近 1 支，最遠 4 支)
+    for (var r = 0; r < rows; r++) {
+        var numPinsInRow = 4 - r;
+        var y = startY + (r * 35);
+        var perspectiveRatio = (y - lanePerspective.topY) / (canvas.height - lanePerspective.topY);
+        var startX = canvas.width / 2;
+        var spacing = 42 * (0.8 + perspectiveRatio * 0.2);
+
+        for (var i = 0; i < numPinsInRow; i++) {
+            pins.push({
+                x: startX - ((numPinsInRow - 1) * spacing / 2) + (i * spacing),
+                y: y,
+                r: pinR * (0.9 + perspectiveRatio * 0.1),
+                active: true, vx: 0, vy: 0, opacity: 1, rotation: 0
+            });
+        }
+    }
+}
+
+function update() {
+    if (!isGaming) return;
+
+    // 更新所有飛行中的球
+    for (var i = balls.length - 1; i >= 0; i--) {
+        var b = balls[i];
+        b.vx += b.sideSpin;
+        b.x += b.vx;
+        b.y += b.vy;
+        b.rotation += b.vy * 0.05;
+        
+        // 拖尾
+        b.trail.push({x: b.x, y: b.y, life: 1});
+        if(b.trail.length > 8) b.trail.shift();
+
+        // 摩擦力
+        b.vx *= 0.985; b.vy *= 0.985; b.sideSpin *= 0.98;
+
+        // 碰撞球瓶
+        pins.forEach(function(p) {
+            if (p.active) {
+                var dist = Math.hypot(b.x - p.x, b.y - p.y);
+                if (dist < 28 + p.r) {
+                    p.active = false;
+                    p.vx = (p.x - b.x) * 0.15 + (Math.random()-0.5)*2;
+                    p.vy = (p.y - b.y) * 0.15;
+                    p.rotation = (Math.random()-0.5) * 0.5;
+                    
+                    // 擊倒得分
+                    addScore(2, p.x, p.y);
+                }
+            }
+        });
+
+        // 移除停下或出界的球
+        if (Math.abs(b.vy) < 0.1 || b.y < lanePerspective.topY - 50) {
+            balls.splice(i, 1);
+        }
+    }
+
+    // 更新飛散球瓶
+    pins.forEach(function(p) { if (!p.active && p.opacity > 0) { p.x += p.vx; p.y += p.vy; p.opacity -= 0.03; } });
+
+    // 檢查是否需要重置球瓶 (全倒)
+    if (pins.length > 0 && pins.every(p => !p.active)) {
+        setTimeout(resetPins, 1500);
+    }
+
+    floatingTexts.forEach(function(ft) { ft.y -= 1; ft.life -= 0.02; });
+    floatingTexts = floatingTexts.filter(function(ft) { return ft.life > 0; });
+}
+
+function addScore(pts, x, y) {
+    score += pts;
+    document.getElementById('score-text').innerText = score;
+    if (score >= 100) victory();
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // 背景美化 (莫蘭迪)
+    var skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.8);
+    skyGrad.addColorStop(0, "#D7E8F0"); skyGrad.addColorStop(1, "#F0F4F8");
+    ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, canvas.width, canvas.height * 0.8);
+    ctx.fillStyle = "#CFD8DC"; ctx.fillRect(0, canvas.height * 0.8, canvas.width, canvas.height * 0.2);
+
+    // 球道
+    var centerX = canvas.width / 2;
+    ctx.fillStyle = "#CFD8DC";
+    ctx.beginPath();
+    ctx.moveTo(centerX - lanePerspective.bottomW/2, canvas.height);
+    ctx.lineTo(centerX + lanePerspective.bottomW/2, canvas.height);
+    ctx.lineTo(centerX + lanePerspective.topW/2, lanePerspective.topY);
+    ctx.lineTo(centerX - lanePerspective.topW/2, lanePerspective.topY);
+    ctx.fill();
+
+    // 畫球瓶
+    pins.sort((a,b) => a.y - b.y).forEach(draw3DPin);
+
+    // 1. 永遠在底端畫一顆「待命球」
+    if (!isDragging) {
+        draw3DBall(readyPos.x, readyPos.y, 28, 0, []);
+    } else {
+        // 拖拽時
+        draw3DBall(readyPos.x, readyPos.y, 28, 0, []);
+        // 畫拉動虛線
+        ctx.setLineDash([5, 8]);
+        ctx.strokeStyle = "rgba(84, 110, 122, 0.4)";
+        ctx.beginPath();
+        ctx.moveTo(readyPos.x, readyPos.y);
+        ctx.lineTo(readyPos.x + (dragStart.x - dragCurrent.x)*1.5, readyPos.y + (dragStart.y - dragCurrent.y)*1.5);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    // 2. 畫飛行中的所有球
+    balls.forEach(function(b) {
+        draw3DBall(b.x, b.y, 28, b.rotation, b.trail);
+    });
+
+    // 文字特效
+    floatingTexts.forEach(function(ft) {
+        ctx.globalAlpha = ft.life; ctx.fillStyle = ft.color;
+        ctx.font = "bold 24px Arial"; ctx.textAlign = "center";
+        ctx.fillText(ft.text, ft.x, ft.y);
+    });
+    ctx.globalAlpha = 1.0;
+
+    if (isGaming) { update(); requestAnimationFrame(draw); }
+}
+
+function draw3DPin(p) {
+    if (p.opacity <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = p.opacity;
+    ctx.translate(p.x, p.y);
+    if (!p.active) ctx.rotate(p.rotation);
+    ctx.fillStyle = "rgba(0,0,0,0.1)";
+    ctx.beginPath(); ctx.ellipse(0, 0, p.r, p.r*0.4, 0, 0, 7); ctx.fill();
+    var grad = ctx.createLinearGradient(-p.r, 0, p.r, 0);
+    grad.addColorStop(0, "#E0E0E0"); grad.addColorStop(0.5, "#FFFFFF"); grad.addColorStop(1, "#BDBDBD");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(-p.r * 0.8, 0); ctx.lineTo(p.r * 0.8, 0);
+    ctx.quadraticCurveTo(p.r * 1.1, -p.r * 0.8, p.r * 0.4, -p.r * 1.5);
+    ctx.lineTo(-p.r * 0.4, -p.r * 1.5);
+    ctx.quadraticCurveTo(-p.r * 1.1, -p.r * 0.8, -p.r * 0.8, 0);
+    ctx.fill();
+    ctx.fillStyle = "#EF5350"; ctx.fillRect(-p.r * 0.5, -p.r * 1.1, p.r, p.r * 0.25);
+    ctx.restore();
+}
+
+function draw3DBall(x, y, r, rot, trail) {
+    trail.forEach(function(t) {
+        ctx.globalAlpha = t.life * 0.2; ctx.fillStyle = "#B2EBF2";
+        ctx.beginPath(); ctx.arc(t.x, t.y, r * t.life, 0, 7); ctx.fill();
+    });
+    ctx.globalAlpha = 1.0;
+    ctx.fillStyle = "rgba(0,0,0,0.1)";
+    ctx.beginPath(); ctx.ellipse(x, y+r*0.1, r*1.1, r*0.8, 0, 0, 7); ctx.fill();
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(rot);
+    var grad = ctx.createRadialGradient(-r/3, -r/3, r/10, 0, 0, r);
+    grad.addColorStop(0, "#90A4AE"); grad.addColorStop(1, "#455A64");
+    ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.beginPath(); ctx.arc(-r/3, -r/4, r/6, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(r/3, -r/4, r/6, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, r/3, r/6, 0, 7); ctx.fill();
+    ctx.restore();
+}
+
+function popText(x, y, txt, col) { floatingTexts.push({ x: x, y: y, text: txt, color: col, life: 1.2 }); }
+
+function onPointerDown(e) {
+    if (!isGaming) return;
+    isDragging = true;
+    dragStart = { x: e.clientX, y: e.clientY };
+    dragCurrent = { x: e.clientX, y: e.clientY };
+    lastPointer = { x: e.clientX, y: e.clientY, t: Date.now() };
+    e.target.setPointerCapture(e.pointerId);
+}
+
+function onPointerMove(e) {
+    if (!isDragging) return;
+    if (e.clientY > canvas.height - 200) {
+        readyPos.x = e.clientX;
+        var maxOffset = lanePerspective.bottomW/2 - 30;
+        readyPos.x = Math.max(canvas.width/2 - maxOffset, Math.min(canvas.width/2 + maxOffset, readyPos.x));
+    }
+    dragCurrent = { x: e.clientX, y: e.clientY };
+    lastPointer = { x: e.clientX, y: e.clientY, t: Date.now() };
+}
+
+function onPointerUp(e) {
+    if (!isDragging) return;
+    isDragging = false;
+    var duration = Date.now() - lastPointer.t;
+    var distX = e.clientX - dragStart.x;
+    var distY = e.clientY - dragStart.y;
+    
+    if (distY < -30 && duration < 400) {
+        var speed = Math.abs(distY) / (duration + 1);
+        // 保留您要求的慢速 (上限 9)
+        balls.push({
+            x: readyPos.x, y: readyPos.y,
+            vx: (distX) * 0.05,
+            vy: -Math.min(9, speed * 3),
+            sideSpin: (distX) * 0.002,
+            rotation: 0, trail: []
+        });
+    }
+    // 發射完畢，發射點球回歸中心
+    readyPos.x = canvas.width / 2;
+}
+
+function startGame() {
+    document.getElementById('start-mask').style.display = 'none';
+    isGaming = true; score = 0;
+    document.getElementById('score-text').innerText = score;
+    init(); draw();
+}
+
+function victory() {
+    isGaming = false;
+    document.getElementById('final-score').innerText = "100 分通關了！恩恩好棒！";
+    document.getElementById('result-modal').style.display = 'flex';
+    try { localStorage.setItem('bowling_score', 100); } catch(e){}
+}
+
+canvas.addEventListener('pointerdown', onPointerDown);
+canvas.addEventListener('pointermove', onPointerMove);
+canvas.addEventListener('pointerup', onPointerUp);
+document.getElementById('start-btn').addEventListener('click', startGame);
+window.addEventListener('resize', init);
+init();
+</script>
+</body>
+</html>
