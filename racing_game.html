@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>小企鵝賽車 - 清晰賽道版</title>
+    <style>
+        :root { --forest-grass: #C8E6C9; --road-gray: #B0BEC5; --pink: #FF8A80; --green: #4CAF50; --gold: #FFD700; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body, html { margin: 0; padding: 0; overflow: hidden; background: var(--forest-grass); font-family: sans-serif; height: 100vh; width: 100vw; position: fixed; }
+        #hud { position: absolute; top: 20px; left: 20px; z-index: 50; pointer-events: none; color: #2E7D32; font-weight: bold; font-size: 18px; background: rgba(255,255,255,0.85); padding: 8px 15px; border-radius: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .lobby-btn { position: absolute; top: 15px; right: 15px; padding: 10px 22px; background: rgba(255, 255, 255, 0.95); border: 2px solid #4CAF50; border-radius: 25px; color: #2E7D32; font-weight: bold; font-size: 15px; text-decoration: none; z-index: 5000; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        #countdown { position: absolute; top: 35%; width: 100%; text-align: center; font-size: 100px; color: var(--pink); font-weight: bold; z-index: 100; pointer-events: none; }
+        canvas { display: block; z-index: 1; }
+        #progress-container { position: absolute; right: 10px; top: 80px; bottom: 80px; width: 6px; background: rgba(0,0,0,0.1); border-radius: 3px; z-index: 2000; }
+        .progress-dot { position: absolute; width: 24px; height: 24px; left: -9px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transform: translateY(-50%); display: flex; justify-content: center; align-items: center; font-size: 16px; }
+        #joy-base { position: absolute; bottom: 50px; right: 30px; width: 140px; height: 60px; background: rgba(255,255,255,0.35); border: 2px solid rgba(255,255,255,0.5); border-radius: 30px; z-index: 1000; backdrop-filter: blur(5px); display: none; }
+        #joy-knob { position: absolute; top: 5px; left: 45px; width: 50px; height: 50px; background: rgba(255,255,255,0.8); border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.92); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
+        .btn-start { background: #4CAF50; color: white; border: none; padding: 20px 60px; font-size: 26px; border-radius: 60px; font-weight: bold; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        #ranking-list { width: 85%; background: white; border-radius: 25px; padding: 15px; margin: 15px 0; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .rank-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 25px; border-bottom: 1px solid #eee; font-size: 1.3rem; }
+        .rank-item.is-player { background: #F1F8E9; border-radius: 12px; font-weight: bold; color: #2E7D32; }
+    </style>
+</head>
+<body>
+<div id="hud">🏁 剩餘: <span id="dist-text">5000</span>m</div>
+<a href="index.html" class="lobby-btn">🏠 回大廳</a>
+<div id="countdown"></div>
+<div id="progress-container"></div>
+<div id="joy-base"><div id="joy-knob"></div></div>
+<canvas id="gameCanvas"></canvas>
+<div id="start-mask" class="overlay">
+    <div style="font-size: 80px; margin-bottom: 20px;">🏎️🐧✨</div>
+    <h2 style="color:#2E7D32; margin-bottom: 10px;">小企鵝清晰賽車</h2>
+    <p style="margin-bottom:25px; color:#666; text-align:center;">
+        <b>賽道優化：</b>移除了看不清楚的蜘蛛網！<br>
+        阿恩恩準備好衝刺了嗎？
+    </p>
+    <button class="btn-start" onclick="startGame()">全體出發！</button>
+</div>
+<div id="result-screen" class="overlay" style="display:none;">
+    <h2 style="color:#2E7D32; font-size: 32px;">🏆 完賽名次 🏆</h2>
+    <div id="ranking-list"></div>
+    <button class="btn-start" onclick="location.reload()">再玩一次</button>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const countdownEl = document.getElementById('countdown');
+const distText = document.getElementById('dist-text');
+const joyBase = document.getElementById('joy-base');
+const joyKnob = document.getElementById('joy-knob');
+const pBar = document.getElementById('progress-container');
+
+let gameState = 'IDLE'; 
+let cameraY = 0;
+const goalLine = 5000; 
+let winners = [];
+let joy = { active: false, startX: 0 };
+let inputX = 0; 
+
+const animals = ['🐻', '🐱', '🐶', '🐰', '🦁', '🦊', '🐼'];
+const sceneryEmojis = ['🌲', '🌳', '🌿', '🍄'];
+let racers = [];
+let items = [];
+let explosions = [];
+let backgrounds = [];
+
+function initStage() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    pBar.innerHTML = '';
+    backgrounds = [];
+    for(let i=0; i<45; i++) backgrounds.push({ x: Math.random()*canvas.width, y: Math.random()*(goalLine+500), emoji: sceneryEmojis[Math.floor(Math.random()*sceneryEmojis.length)] });
+    racers = [];
+    const totalRacers = 5;
+    const laneWidth = canvas.width / (totalRacers + 1);
+    let animalPool = [...animals].sort(() => 0.5 - Math.random()).slice(0, 4);
+    for(let i=0; i<totalRacers; i++) {
+        const isPlayer = (i === 2);
+        const emoji = isPlayer ? '🐧' : animalPool.pop();
+        const baseSpeed = 1.15 + (Math.random() * 0.15); 
+        const dot = document.createElement('div');
+        dot.className = 'progress-dot';
+        dot.style.background = isPlayer ? '#FF8A80' : '#81C784';
+        dot.innerText = emoji;
+        pBar.appendChild(dot);
+        racers.push({ x: laneWidth*(i+1), y: 0, emoji: emoji, isPlayer: isPlayer, currentSpeed: baseSpeed, stun: 0, boost: 0, rank: 0, dot: dot });
+    }
+    items = []; explosions = []; winners = []; cameraY = 0;
+}
+
+function startGame() {
+    document.getElementById('start-mask').style.display = 'none';
+    joyBase.style.display = 'block';
+    initStage();
+    gameState = 'COUNTDOWN';
+    let count = 5;
+    countdownEl.innerText = count;
+    const timer = setInterval(() => {
+        count--;
+        if(count > 0) countdownEl.innerText = count;
+        else if(count === 0) { countdownEl.innerText = "GO!"; gameState = 'RACING'; }
+        else { clearInterval(timer); countdownEl.innerText = ""; }
+    }, 1000);
+    requestAnimationFrame(gameLoop);
+}
+
+const handleJoyStart = (e) => { joy.active = true; const t = e.touches ? e.touches[0] : e; joy.startX = joyBase.getBoundingClientRect().left + 70; };
+const handleJoyMove = (e) => { if (!joy.active) return; const t = e.touches ? e.touches[0] : e; const max = 45; const lx = Math.max(-max, Math.min(max, t.clientX - joy.startX)); joyKnob.style.transform = `translateX(${lx}px)`; inputX = lx / max; };
+const handleJoyEnd = () => { joy.active = false; joyKnob.style.transform = `translateX(0px)`; inputX = 0; };
+joyBase.addEventListener('touchstart', handleJoyStart); window.addEventListener('touchmove', handleJoyMove); window.addEventListener('touchend', handleJoyEnd);
+joyBase.addEventListener('mousedown', handleJoyStart); window.addEventListener('mousemove', handleJoyMove); window.addEventListener('mouseup', handleJoyEnd);
+window.addEventListener('keydown', (e) => { if (['ArrowLeft', 'a', 'A'].includes(e.key)) inputX = -1; if (['ArrowRight', 'd', 'D'].includes(e.key)) inputX = 1; });
+window.addEventListener('keyup', (e) => { if (['ArrowLeft', 'ArrowRight', 'a', 'd', 'A', 'D'].includes(e.key)) inputX = 0; });
+
+function getRoadCenter(y) { return canvas.width / 2 + Math.sin(y * 0.002) * (canvas.width * 0.22); }
+
+function spawnItem() {
+    if(gameState !== 'RACING' || items.length >= 10) return;
+    if(Math.random() < 0.04) { 
+        // --- 修正：移除了 'web' (蜘蛛網) ---
+        const types = ['ball', 'bomb', 'mushroom', 'brick', 'banana', 'ice'];
+        const player = racers.find(r => r.isPlayer);
+        let nx, ny, valid = false;
+        for(let a=0; a<15; a++) {
+            ny = player.y + canvas.height + 200 + (Math.random() * 400);
+            nx = getRoadCenter(ny) + (Math.random() * 220 - 110);
+            if(items.every(it => Math.hypot(nx - it.x, ny - it.y) > 200)) { valid = true; break; }
+        }
+        if(valid) items.push({ x: nx, y: ny, type: types[Math.floor(Math.random()*types.length)], explodeTargetY: player.y + (canvas.height*0.7), timer: 2.0, isExploding: false, active: true });
+    }
+}
+
+function update() {
+    if (gameState === 'IDLE' || gameState === 'COUNTDOWN') return;
+    spawnItem();
+    const player = racers.find(r => r.isPlayer);
+    racers.forEach(r => {
+        if(r.rank > 0) return;
+        if(r.stun > 0) { r.stun--; return; }
+        let speed = r.currentSpeed;
+        if(r.boost > 0) { speed *= 2.0; r.boost--; }
+        if(r.isPlayer) { r.x += inputX * 4.5; r.y += 5.2; }
+        else {
+            let dodge = 0;
+            items.forEach(it => { if (it.y > r.y && it.y < r.y + 240 && Math.abs(it.x - r.x) < 95) dodge = (r.x < it.x) ? -4 : 4; });
+            r.x += dodge || (getRoadCenter(r.y) - r.x) * 0.02 + Math.sin(r.y*0.05)*1.8;
+            r.y += speed * 4.2; 
+        }
+        r.x = Math.max(30, Math.min(canvas.width - 30, r.x));
+        r.dot.style.bottom = (Math.min(1, r.y / goalLine) * 100) + '%';
+        if(r.y >= goalLine) { r.rank = winners.length + 1; winners.push({ emoji: r.emoji, isPlayer: r.isPlayer }); }
+    });
+    for (let i = 0; i < racers.length; i++) {
+        for (let j = i + 1; j < racers.length; j++) {
+            let r1 = racers[i], r2 = racers[j];
+            if (r1.rank > 0 || r2.rank > 0) continue;
+            if (Math.hypot(r1.x - r2.x, r1.y - r2.y) < 65) { let p = r1.x < r2.x ? -2.5 : 2.5; r1.x += p; r2.x -= p; }
+        }
+    }
+    if(winners.length === 5 && gameState !== 'FINISHED') { gameState = 'FINISHED'; setTimeout(showFinalRanking, 1000); }
+    cameraY = (player.y < goalLine) ? player.y : goalLine;
+    distText.innerText = Math.max(0, Math.floor(goalLine - player.y));
+    items.forEach(it => {
+        if(!it.active) return;
+        if(it.type === 'bomb') { if(it.y <= it.explodeTargetY || it.isExploding) { it.isExploding = true; it.timer -= 0.06; if(it.timer <= 0) triggerExplosion(it); } }
+        else { it.y -= 1.0; }
+        racers.forEach(r => { if(r.rank === 0 && Math.hypot(r.x - it.x, r.y - it.y) < 65) applyEffect(r, it); });
+    });
+    items = items.filter(it => it.active && it.y > player.y - 300);
+}
+
+function applyEffect(r, it) {
+    if(!it.active) return;
+    const stunFrames = 40 + (Math.random() * 50); 
+    if(it.type === 'mushroom') { r.boost = 180; }
+    else if(it.type === 'bomb') { r.y = Math.max(0, r.y - 400); r.stun = 60; triggerExplosion(it); return; }
+    // --- 修正：移除了 web 的 case ---
+    else { r.stun = stunFrames; }
+    it.active = false;
+}
+
+function triggerExplosion(it) {
+    if(!it.active && it.type === 'bomb' && !it.isExploding) return; 
+    it.active = false; explosions.push({ x: it.x, y: it.y, life: 30 });
+    racers.forEach(r => { if(r.rank === 0 && Math.hypot(r.x - it.x, r.y - it.y) < 180) { r.y = Math.max(0, r.y - 350); r.stun = 40; } });
+}
+
+function draw() {
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.globalAlpha = 1.0;
+    ctx.save(); ctx.translate(0, canvas.height - 180 + cameraY);
+    ctx.fillStyle = "rgba(0,0,0,0.12)"; for(let i=0; i<goalLine + 1000; i+=25) { const cx = getRoadCenter(i); ctx.fillRect(cx - 160, -i, 320, 26); }
+    ctx.font = "26px Arial"; backgrounds.forEach(bg => { ctx.fillText(bg.emoji, bg.x, -bg.y); });
+    ctx.fillStyle = "#FFD700"; ctx.fillRect(getRoadCenter(goalLine)-220, -goalLine - 60, 440, 60);
+    ctx.fillStyle = "black"; ctx.font = "bold 30px Arial"; ctx.fillText("🏁 FINISH 🏁", getRoadCenter(goalLine) - 80, -goalLine - 20);
+    // --- 修正：移除了 web 的圖標 ---
+    const itIcons = { ball:'⚽', bomb:'💣', mushroom:'🍄', brick:'🧱', banana:'🍌', ice:'🧊' };
+    items.forEach(it => { if(!it.active) return; ctx.save(); ctx.font = "62px Arial"; if(it.type === 'bomb' && it.isExploding && Math.floor(Date.now()/60)%2) ctx.fillStyle = "orange"; else ctx.fillStyle = "black"; ctx.fillText(itIcons[it.type], it.x - 31, -it.y); ctx.restore(); });
+    explosions.forEach(ex => { ctx.save(); ctx.beginPath(); ctx.fillStyle = `rgba(255, 80, 0, ${ex.life/30})`; ctx.arc(ex.x, -ex.y, 180 - ex.life*3, 0, 7); ctx.fill(); ex.life--; ctx.restore(); });
+    racers.forEach(r => {
+        ctx.save();
+        if(r.stun > 0 && Math.floor(Date.now()/100)%2) ctx.globalAlpha = 0.4;
+        const cy = -Math.max(0, r.y);
+        ctx.save(); ctx.translate(r.x, cy); ctx.rotate(Math.PI/2); ctx.font = "42px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(r.emoji, 0, 0); ctx.restore();
+        ctx.save(); ctx.translate(r.x, cy); ctx.rotate(Math.PI/2); ctx.font = "72px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("🏎️", 0, 5); ctx.restore();
+        if(r.boost > 0) { ctx.font = "30px Arial"; ctx.fillText('🔥', r.x, cy + 55); }
+        ctx.restore();
+    });
+    ctx.restore();
+}
+
+function gameLoop() { update(); draw(); if(gameState !== 'FINISHED' || winners.length < 5) requestAnimationFrame(gameLoop); }
+function showFinalRanking() {
+    const listEl = document.getElementById('ranking-list'); listEl.innerHTML = '';
+    winners.forEach((win, index) => { const item = document.createElement('div'); item.className = 'rank-item' + (win.isPlayer ? ' is-player' : ''); item.innerHTML = `<span>第 ${index + 1} 名</span><span style="font-size:38px;">${win.emoji}</span>`; listEl.appendChild(item); });
+    document.getElementById('result-screen').style.display = 'flex';
+    localStorage.setItem('forest_score', (5 - (winners.findIndex(w => w.isPlayer) + 1) + 1) * 200);
+}
+initStage();
+</script>
+</body>
+</html>

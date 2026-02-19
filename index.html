@@ -2,214 +2,96 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>恩恩的遊戲樂園 - EnEnGram</title>
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>EnEnGram - 阿恩恩遊戲大廳</title>
     <style>
-        body {
-            background-color: #FAFAFA;
-            font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", sans-serif;
-            margin: 0; padding: 0;
-            display: flex; justify-content: center;
-            min-height: 100vh; color: #262626;
+        :root { --main-bg: #F5F7F2; --card-bg: #FFFFFF; --text-main: #2C3E50; --accent: #81C784; --pink: #FF8A80; }
+        * { box-sizing: border-box; font-family: -apple-system, "Microsoft JhengHei", sans-serif; }
+        body { background-color: var(--main-bg); margin: 0; padding-bottom: 60px; color: var(--text-main); }
+        
+        header { 
+            background: white; padding: 15px; text-align: center; font-weight: bold; 
+            border-bottom: 1px solid #E0E0E0; position: sticky; top: 0; z-index: 100;
         }
+        header h1 { font-size: 20px; color: var(--accent); margin: 0; letter-spacing: 2px; }
 
-        .app-container {
-            width: 100%; max-width: 500px;
-            background-color: #FFFFFF; min-height: 100vh;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
-            position: relative; padding-bottom: 70px;
+        .feed { max-width: 500px; margin: 0 auto; padding: 10px; }
+
+        /* 遊戲卡片樣式 */
+        .post { background: white; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow: hidden; }
+        .post-header { padding: 12px; display: flex; align-items: center; }
+        .avatar { width: 40px; height: 40px; background: #EEE; border-radius: 50%; margin-right: 10px; font-size: 24px; display: flex; align-items: center; justify-content: center; }
+        .user-info b { font-size: 15px; display: block; }
+        .user-info span { font-size: 12px; color: #999; }
+
+        .game-display { 
+            width: 100%; height: 200px; background: #f9f9f9; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-decoration: none; border-top: 1px solid #F5F5F5; border-bottom: 1px solid #F5F5F5;
         }
+        .game-icon { font-size: 60px; margin-bottom: 10px; transition: transform 0.3s; }
+        .game-display:hover .game-icon { transform: scale(1.1); }
+        .game-name { color: var(--accent); font-weight: bold; font-size: 22px; }
 
-        /* 遊戲封面樣式 */
-        .emoji-cover {
-            width: 100%; aspect-ratio: 1 / 1;
-            display: flex; flex-direction: column;
-            justify-content: center; align-items: center;
-            position: relative; overflow: hidden;
-            text-decoration: none; transition: transform 0.2s;
-        }
-        .emoji-cover:active { transform: scale(0.98); }
+        .post-content { padding: 12px; }
+        .post-caption { font-size: 14px; margin-bottom: 10px; line-height: 1.5; }
+        .score-badge { display: inline-block; background: var(--road-gray, #90A4AE); color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .score-badge.top { background: var(--pink); }
 
-        .emoji-main { font-size: 85px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.15)); z-index: 2; }
-        .emoji-title { color: white; font-size: 28px; font-weight: bold; margin-top: 12px; text-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 2; }
-        .emoji-decor { position: absolute; font-size: 80px; opacity: 0.15; z-index: 1; user-select: none; }
-
-        /* 莫蘭迪低彩度主題配色 */
-        .cover-pinball { background: linear-gradient(135deg, #7B1FA2 0%, #4A148C 100%); } /* 旗艦紫 */
-        .cover-bowling { background: linear-gradient(135deg, #CFD8DC 0%, #90A4AE 100%); }
-        .cover-hoop { background: linear-gradient(135deg, #B39DDB 0%, #9575CD 100%); }
-        .cover-fruit { background: linear-gradient(135deg, #C5E1A5 0%, #81C784 100%); }
-        .cover-brick { background: linear-gradient(135deg, #90CAF9 0%, #64B5F6 100%); }
-        .cover-forest { background: linear-gradient(135deg, #A5D6A7 0%, #66BB6A 100%); }
-        .cover-math { background: linear-gradient(135deg, #FFD54F 0%, #FF8A65 100%); }
-
-        /* 頂部導航列 */
-        .top-bar {
-            height: 55px; display: flex; align-items: center; justify-content: space-between;
-            padding: 0 15px; border-bottom: 1px solid #DBDBDB; background: #fff;
-            position: sticky; top: 0; z-index: 100;
-        }
-        .logo { font-size: 1.6rem; font-weight: bold; font-family: cursive, sans-serif; color: #d62976; }
-
-        /* 卡片設計 */
-        .post-card { border-bottom: 1px solid #DBDBDB; padding-bottom: 20px; margin-bottom: 10px; }
-        .post-header { padding: 12px 15px; display: flex; align-items: center; font-weight: 600; font-size: 14px; }
-        .avatar-small { width: 34px; height: 34px; border-radius: 50%; background: #f0f0f0; margin-right: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; border: 1px solid #eee; }
-        .avatar-flagship { border: 2px solid #7B1FA2; background: #F3E5F5; }
-
-        .post-info { padding: 12px 15px; }
-        .score-badge { background: #F8F9FA; padding: 4px 10px; border-radius: 12px; font-size: 13px; color: #555; border: 1px solid #E9ECEF; display: inline-block; margin-bottom: 8px; }
-        .post-caption { margin: 0; line-height: 1.5; font-size: 15px; }
-        .post-caption b { margin-right: 5px; color: #262626; }
-
-        .bottom-nav { position: fixed; bottom: 0; width: 100%; max-width: 500px; height: 55px; background: #fff; border-top: 1px solid #DBDBDB; display: flex; justify-content: space-around; align-items: center; font-size: 26px; z-index: 100; }
+        .nav-bar { position: fixed; bottom: 0; width: 100%; height: 60px; background: white; border-top: 1px solid #E0E0E0; display: flex; justify-content: space-around; align-items: center; }
+        .nav-item { font-size: 24px; color: #CCC; cursor: pointer; }
+        .nav-item.active { color: var(--accent); }
     </style>
 </head>
 <body>
 
-<div class="app-container">
-    
-    <div class="top-bar">
-        <div class="logo">EnEnGram</div>
-        <div style="font-size: 22px;">🥇</div>
+<header><h1>EnEnGram</h1></header>
+
+<div class="feed">
+    <div class="post">
+        <div class="post-header">
+            <div class="avatar">🐧</div>
+            <div class="user-info"><b>阿恩恩</b><span>剛剛 · 森林賽道</span></div>
+        </div>
+        <a href="racing_game.html" class="game-display" style="background: linear-gradient(180deg, #E8F5E9 0%, #C8E6C9 100%);">
+            <div class="game-icon">🏎️💨</div>
+            <div class="game-name">小企鵝森林大賽車</div>
+        </a>
+        <div class="post-content">
+            <div class="post-caption">今天跟好朋友們在森林小徑比賽，大家開賽車的樣子超帥！這條路彎彎曲曲的，一定要專心看前面喔！🏎️🌲</div>
+            <div id="forest-score-display" class="score-badge top">我的最高積分：0</div>
+        </div>
     </div>
 
-    <div class="feed">
-        
-        <div class="post-card">
-            <div class="post-header">
-                <div class="avatar-small avatar-flagship">💜</div>
-                <span>pinball_pro</span>
-            </div>
-            <a href="pinball_game.html" class="emoji-cover cover-pinball">
-                <div class="emoji-decor" style="top: 10%; right: 10%;">✨</div>
-                <div class="emoji-main">🕹️</div>
-                <div class="emoji-title">瓦路易吉彈珠台</div>
-            </a>
-            <div class="post-info">
-                <span class="score-badge">💜 旗艦版紀錄：<span id="pinball-score">0</span> 分</span>
-                <p class="post-caption"><b>pinball_pro</b> 挑戰最新的旗艦級物理滑道，恩恩能拿幾分呢？</p>
-            </div>
+    <div class="post">
+        <div class="post-header">
+            <div class="avatar">🐧</div>
+            <div class="user-info"><b>阿恩恩</b><span>2月15日 · 企鵝冰原</span></div>
         </div>
-
-        <div class="post-card">
-            <div class="post-header">
-                <div class="avatar-small">🎳</div>
-                <span>bowling_king</span>
-            </div>
-            <a href="bowling_game.html" class="emoji-cover cover-bowling">
-                <div class="emoji-decor" style="bottom: 10%; left: 10%;">💥</div>
-                <div class="emoji-main">🎳</div>
-                <div class="emoji-title">小企鵝保齡球</div>
-            </a>
-            <div class="post-info">
-                <span class="score-badge">🏆 擊倒分數：<span id="bowling-score">0</span> / 100</span>
-                <p class="post-caption"><b>bowling_king</b> 擊倒所有的球瓶吧！漂亮的 Strike 全倒！</p>
-            </div>
+        <div class="game-display" style="background: #E3F2FD;">
+            <div class="game-icon">🎳</div>
+            <div class="game-name">小企鵝保齡球</div>
         </div>
-
-        <div class="post-card">
-            <div class="post-header">
-                <div class="avatar-small">🏀</div>
-                <span>hoop_king</span>
-            </div>
-            <a href="hoop_game.html" class="emoji-cover cover-hoop">
-                <div class="emoji-decor" style="bottom: 10%; right: 10%;">🎯</div>
-                <div class="emoji-main">🏀</div>
-                <div class="emoji-title">投籃大挑戰</div>
-            </a>
-            <div class="post-info">
-                <span class="score-badge">🏀 神射手分數：<span id="hoop-score">0</span> / 100</span>
-                <p class="post-caption"><b>hoop_king</b> 瞄準移動籃框，連續投出完美拋物線！</p>
-            </div>
+        <div class="post-content">
+            <div class="post-caption">企鵝爸爸教我打保齡球，我一次就把球瓶全部撞倒了！🐧💥</div>
+            <div class="score-badge">我的最高積分：850</div>
         </div>
-
-        <div class="post-card">
-            <div class="post-header">
-                <div class="avatar-small">🍎</div>
-                <span>fruit_friends</span>
-            </div>
-            <a href="fruit_game.html" class="emoji-cover cover-fruit">
-                <div class="emoji-decor" style="top: 10%; right: 10%;">🧺</div>
-                <div class="emoji-main">🐧</div>
-                <div class="emoji-title">小企鵝接水果</div>
-            </a>
-            <div class="post-info">
-                <span class="score-badge">🧺 團隊總分：<span id="fruit-score">0</span> / 100</span>
-                <p class="post-caption"><b>fruit_friends</b> 企鵝和小熊手牽手，接住掉下來的好吃水果！</p>
-            </div>
-        </div>
-
-        <div class="post-card">
-            <div class="post-header">
-                <div class="avatar-small">🧱</div>
-                <span>brick_master</span>
-            </div>
-            <a href="brick_game.html" class="emoji-cover cover-brick">
-                <div class="emoji-decor" style="top: 10%; left: 10%;">🎾</div>
-                <div class="emoji-main">🧱</div>
-                <div class="emoji-title">打磚塊挑戰</div>
-            </a>
-            <div class="post-info">
-                <span class="score-badge">🔥 最佳紀錄：<span id="brick-score">0</span> 分</span>
-                <p class="post-caption"><b>brick_master</b> 用球擊碎磚塊，挑戰得分極限！</p>
-            </div>
-        </div>
-
-        <div class="post-card">
-            <div class="post-header">
-                <div class="avatar-small">🌲</div>
-                <span>forest_explorer</span>
-            </div>
-            <a href="map_game.html" class="emoji-cover cover-forest">
-                <div class="emoji-decor" style="bottom: 5%; left: 5%;">🗺️</div>
-                <div class="emoji-main">🌳</div>
-                <div class="emoji-title">森林大探險</div>
-            </a>
-            <div class="post-info">
-                <span class="score-badge">🌟 冒險進度：<span id="forest-score">0</span> 分</span>
-                <p class="post-caption"><b>forest_explorer</b> 探索神祕路徑，小心地圖中的重重挑戰！</p>
-            </div>
-        </div>
-
-        <div class="post-card">
-            <div class="post-header">
-                <div class="avatar-small">🐧</div>
-                <span>math_wizard</span>
-            </div>
-            <a href="math_game.html" class="emoji-cover cover-math">
-                <div class="emoji-decor" style="top: 5%; right: 5%;">➕</div>
-                <div class="emoji-main">🧮</div>
-                <div class="emoji-title">數學大冒險</div>
-            </a>
-            <div class="post-info">
-                <span class="score-badge">🏆 最高戰績：<span id="math-score">0</span> 分</span>
-                <p class="post-caption"><b>math_wizard</b> 和小企鵝一起學加減法，聰明腦袋動起來！</p>
-            </div>
-        </div>
-
-    </div>
-
-    <div class="bottom-nav">
-        <div>🏠</div>
-        <div>🔍</div>
-        <div>📸</div>
-        <div>❤️</div>
-        <div>👤</div>
     </div>
 </div>
 
+<div class="nav-bar">
+    <div class="nav-item active">🏠</div>
+    <div class="nav-item">🔍</div>
+    <div class="nav-item">📸</div>
+    <div class="nav-item">❤️</div>
+    <div class="nav-item">👤</div>
+</div>
+
 <script>
+    // 自動載入最新的賽車積分
     window.onload = function() {
-        // 同步所有遊戲的分數 (從 localStorage 讀取)
-        document.getElementById('pinball-score').innerText = localStorage.getItem('pinball_score') || 0;
-        document.getElementById('bowling-score').innerText = localStorage.getItem('bowling_score') || 0;
-        document.getElementById('hoop-score').innerText = localStorage.getItem('hoop_score') || 0;
-        document.getElementById('fruit-score').innerText = localStorage.getItem('fruit_score') || 0;
-        document.getElementById('brick-score').innerText = localStorage.getItem('brick_score') || 0;
-        document.getElementById('forest-score').innerText = localStorage.getItem('forest_score') || 0;
-        document.getElementById('math-score').innerText = localStorage.getItem('math_last_score') || 0;
+        const forestScore = localStorage.getItem('forest_score') || 0;
+        document.getElementById('forest-score-display').innerText = '我的最高積分：' + forestScore;
     };
 </script>
 
