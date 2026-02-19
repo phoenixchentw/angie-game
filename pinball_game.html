@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>瓦路易吉彈珠台：噴射版</title>
+    <style>
+        :root { --bg: #0D0216; --purple: #7B1FA2; --pink: #FF4081; --gold: #FFD700; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body, html { margin: 0; padding: 0; overflow: hidden; background: var(--bg); font-family: sans-serif; width: 100%; height: 100%; position: fixed; }
+        #game-wrapper { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden; }
+        canvas { display: block; touch-action: none; }
+        .home-btn { position: absolute; top: 15px; right: 15px; width: 44px; height: 44px; background: rgba(255, 255, 255, 0.1); border: 2px solid var(--pink); border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; font-size: 24px; text-decoration: none; z-index: 10000; backdrop-filter: blur(5px); }
+        #hud { position: absolute; top: 20px; left: 20px; color: white; z-index: 5000; pointer-events: none; }
+        .score-tag { font-size: 18px; font-weight: bold; margin-bottom: 5px; text-shadow: 0 0 8px var(--pink); }
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; z-index: 9500; flex-direction: column; }
+        .btn-real { background: var(--purple); color: white; border: 3px solid var(--gold); padding: 18px 50px; font-size: 24px; border-radius: 60px; font-weight: bold; cursor: pointer; box-shadow: 0 0 20px var(--purple); outline: none; }
+    </style>
+</head>
+<body>
+
+<div id="game-wrapper">
+    <a href="index.html" class="home-btn">🏠</a>
+    <div id="hud">
+        <div class="score-tag">SCORE: <span id="score-text">0</span></div>
+        <div class="score-tag">BALLS: <span id="balls-text">10</span></div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="start-mask" class="overlay">
+        <h1 style="color:var(--gold); margin-bottom:10px; font-style: italic;">WALUIGI JET</h1>
+        <p style="color:white; margin-bottom:30px; text-align:center;">
+            <b>球體已輕量化！</b><br>
+            向下拉動拉桿，放開即噴射。<br>
+            電腦版：左右鍵擊球，空白鍵發球。
+        </p>
+        <button class="btn-real" onpointerdown="startGame()">START</button>
+    </div>
+
+    <div id="result-modal" class="overlay" style="display:none;">
+        <div style="background: var(--bg); padding: 30px; border: 4px solid var(--purple); border-radius: 25px; text-align: center; width: 85%; max-width: 320px;">
+            <h2 style="color:var(--gold);">挑戰結束</h2>
+            <p id="final-score" style="color:white; font-size:28px; font-weight:bold; margin:15px 0;"></p>
+            <button class="btn-real" onpointerdown="location.reload()">REPLAY</button>
+            <a href="index.html" style="text-decoration:none; color:var(--pink); display:block; margin-top:20px; font-weight:bold;">BACK</a>
+        </div>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+let score = 0, ballsLeft = 10, isGaming = false;
+
+// --- 物理優化參數 ---
+const GRAVITY = 0.18; // 顯著降低重力感 (球變輕了)
+const FRICTION = 0.99; // 降低空氣阻力，保持動能
+const MAX_SPEED = 18; 
+const BOUNCINESS = 0.65; 
+
+let ball = { x: 0, y: 0, r: 10, vx: 0, vy: 0, active: false, isReady: true };
+let bumpers = [], particles = [];
+let leftFlipper = { x: 0, y: 0, length: 95, angle: 25, state: 'down' };
+let rightFlipper = { x: 0, y: 0, length: 95, angle: 155, state: 'down' };
+
+let plunger = { pull: 0, maxPull: 100, isDragging: false, startY: 0 };
+const arena = { sideM: 20, laneW: 50, center: {x:0, y:0}, midY: 0, botY: 0 };
+
+function init() {
+    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+    const fieldW = canvas.width - arena.laneW - arena.sideM * 2;
+    const rad = fieldW / 2;
+    arena.center = { x: arena.sideM + rad, y: rad + 40 };
+    arena.midY = canvas.height * 0.6;
+    arena.botY = canvas.height - 140;
+
+    const gap = 45; 
+    leftFlipper.x = arena.center.x - (gap/2 + leftFlipper.length);
+    leftFlipper.y = arena.botY;
+    rightFlipper.x = arena.center.x + (gap/2 + rightFlipper.length);
+    rightFlipper.y = arena.botY;
+
+    bumpers = [];
+    for(let r=0; r<2; r++) {
+        for(let c=0; c<3; c++) {
+            bumpers.push({
+                x: arena.sideM + (fieldW/4) * (c+1),
+                y: 280 + r * 150,
+                r: 15, baseR: 15, color: r===0 ? '#FF4081' : '#7B1FA2', hit: 0
+            });
+        }
+    }
+    spawnBall();
+}
+
+function spawnBall() {
+    if (ballsLeft <= 0) return;
+    ball.x = canvas.width - arena.sideM - (arena.laneW/2);
+    ball.y = canvas.height - 100;
+    ball.vx = 0; ball.vy = 0; ball.active = true; ball.isReady = true;
+    document.getElementById('balls-text').innerText = ballsLeft;
+}
+
+function startGame() {
+    document.getElementById('start-mask').style.display = 'none';
+    isGaming = true; score = 0; init();
+    requestAnimationFrame(gameLoop);
+}
+
+function gameLoop() {
+    if (!isGaming) return;
+    update(); draw();
+    requestAnimationFrame(gameLoop);
+}
+
+function update() {
+    if (ball.active && !ball.isReady) {
+        ball.vy += GRAVITY;
+        ball.x += ball.vx;
+        ball.y += ball.vy;
+
+        // 速度限制
+        const speed = Math.hypot(ball.vx, ball.vy);
+        if (speed > MAX_SPEED) {
+            ball.vx = (ball.vx / speed) * MAX_SPEED;
+            ball.vy = (ball.vy / speed) * MAX_SPEED;
+        }
+
+        // 頂部圓弧幾何
+        const rad = (canvas.width - arena.laneW - arena.sideM*2) / 2;
+        const d = Math.hypot(ball.x - arena.center.x, ball.y - arena.center.y);
+        if (ball.y < arena.center.y && d > rad - ball.r) {
+            const nx = (arena.center.x - ball.x)/d, ny = (arena.center.y - ball.y)/d;
+            reflect(nx, ny, BOUNCINESS);
+            ball.x = arena.center.x - nx * (rad - ball.r);
+            ball.y = arena.center.y - ny * (rad - ball.r);
+            // 額外引導：如果是在頂部最高點，賦予一點左移量
+            if(ball.y < arena.center.y - rad + 50 && ball.vx > -1) ball.vx -= 1;
+        }
+
+        // 邊界判定
+        const divX = canvas.width - arena.sideM - arena.laneW;
+        if (ball.x < arena.sideM + ball.r) { ball.x = arena.sideM + ball.r; ball.vx *= -0.5; }
+        if (ball.x > canvas.width - arena.sideM - ball.r) { ball.x = canvas.width - arena.sideM - ball.r; ball.vx *= -0.5; }
+        
+        // 單向出口封閉：只有球在場內且 y > center.y 時才阻擋進入發球道
+        if (ball.x > divX - ball.r && ball.y > arena.center.y + 60) {
+            if (ball.x < divX + ball.r) { ball.x = divX - ball.r; ball.vx *= -0.7; }
+        }
+
+        if (ball.y > arena.midY && ball.y < arena.botY + 50) {
+            checkLine(arena.sideM, arena.midY, leftFlipper.x - 5, leftFlipper.y);
+            checkLine(divX, arena.midY, rightFlipper.x + 5, rightFlipper.y);
+        }
+
+        bumpers.forEach(b => {
+            const dist = Math.hypot(ball.x - b.x, ball.y - b.y);
+            if (dist < ball.r + b.r) {
+                const nx = (ball.x - b.x)/dist, ny = (ball.y - b.y)/dist;
+                ball.vx = nx * 14; ball.vy = ny * 14;
+                ball.x = b.x + nx * (ball.r + b.r + 2);
+                b.hit = 1; score += 20; createExplosion(b.x, b.y, b.color);
+                document.getElementById('score-text').innerText = score;
+            }
+        });
+
+        // 撥片反擊
+        checkFlip(leftFlipper, true); 
+        checkFlip(rightFlipper, false);
+
+        if (ball.y > canvas.height + 20) {
+            ball.active = false; ballsLeft--;
+            if (ballsLeft > 0) setTimeout(spawnBall, 400);
+            else finishGame();
+        }
+    }
+
+    leftFlipper.angle += ((leftFlipper.state === 'up' ? -35 : 25) - leftFlipper.angle) * 0.55;
+    rightFlipper.angle += ((rightFlipper.state === 'up' ? 215 : 155) - rightFlipper.angle) * 0.55;
+    bumpers.forEach(b => { if(b.hit > 0) b.hit -= 0.12; b.r = b.baseR + b.hit*8; });
+    particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.life -= 0.02; });
+    particles = particles.filter(p => p.life > 0);
+}
+
+function reflect(nx, ny, b) {
+    const dot = ball.vx * nx + ball.vy * ny;
+    if (dot < 0) { ball.vx = (ball.vx - 2 * dot * nx) * b; ball.vy = (ball.vy - 2 * dot * ny) * b; }
+}
+
+function checkFlip(f, isLeft) {
+    const rad = f.angle * Math.PI / 180;
+    const tx = f.x + Math.cos(rad) * f.length, ty = f.y + Math.sin(rad) * f.length;
+    const d = distToSeg(ball.x, ball.y, f.x, f.y, tx, ty);
+    if (d.dist < ball.r + 5) {
+        const normalAngle = isLeft ? (f.angle - 90) : (f.angle + 90);
+        const nx = Math.cos(normalAngle * Math.PI / 180);
+        const ny = Math.sin(normalAngle * Math.PI / 180);
+        const power = f.state === 'up' ? 22 : 4;
+        ball.vx = nx * power + (Math.random() - 0.5) * 3;
+        ball.vy = ny * power;
+        ball.x = d.cx + nx * (ball.r + 10);
+        ball.y = d.cy + ny * (ball.r + 10);
+    }
+}
+
+function checkLine(x1, y1, x2, y2) {
+    const d = distToSeg(ball.x, ball.y, x1, y1, x2, y2);
+    if (d.dist < ball.r) {
+        const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy);
+        let nx = -dy/len, ny = dx/len;
+        if (nx * (arena.center.x - ball.x) < 0) { nx = -nx; ny = -ny; }
+        reflect(nx, ny, 0.6);
+        ball.x = d.cx + nx * (ball.r + 2); ball.y = d.cy + ny * (ball.r + 2);
+    }
+}
+
+function distToSeg(px, py, x1, y1, x2, y2) {
+    const l2 = Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2);
+    let t = Math.max(0, Math.min(1, ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2));
+    return { dist: Math.hypot(px - (x1+t*(x2-x1)), py - (y1+t*(y2-y1))), cx: x1+t*(x2-x1), cy: y1+t*(y2-y1) };
+}
+
+function draw() {
+    ctx.fillStyle = "#0D0216"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "#4A148C"; ctx.lineWidth = 10; ctx.lineCap = "round";
+    
+    // 繪製軌道與牆壁
+    ctx.beginPath();
+    const rad = (canvas.width - arena.laneW - arena.sideM*2) / 2;
+    ctx.arc(arena.center.x, arena.center.y, rad, Math.PI, 0); 
+    ctx.lineTo(canvas.width - arena.sideM, canvas.height); 
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(arena.sideM, arena.center.y); ctx.lineTo(arena.sideM, arena.midY); 
+    ctx.lineTo(leftFlipper.x - 5, leftFlipper.y); 
+    const divX = canvas.width - arena.sideM - arena.laneW;
+    ctx.moveTo(divX, arena.center.y + 60); // 出口調寬
+    ctx.lineTo(divX, arena.midY); 
+    ctx.lineTo(rightFlipper.x + 5, rightFlipper.y);
+    ctx.stroke();
+
+    // 拉桿動畫
+    const px = canvas.width - arena.sideM - (arena.laneW/2);
+    const py = canvas.height - 30;
+    ctx.strokeStyle = "#FF4081"; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(px - 10, py - plunger.pull); ctx.lineTo(px + 10, py - plunger.pull); ctx.stroke();
+    ctx.lineWidth = 2;
+    for(let i=0; i<6; i++) {
+        ctx.beginPath(); ctx.moveTo(px-10, py-5-i*5-plunger.pull/5*i); ctx.lineTo(px+10, py-8-i*5-plunger.pull/5*i); ctx.stroke();
+    }
+
+    bumpers.forEach(b => {
+        ctx.shadowBlur = b.hit*20; ctx.shadowColor = b.color;
+        ctx.fillStyle = b.color; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.fill();
+        ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke(); ctx.shadowBlur = 0;
+        ctx.fillStyle = "white"; ctx.font = "bold 16px Arial"; ctx.textAlign = "center";
+        ctx.fillText("Γ", b.x, b.y + 6);
+    });
+
+    drawFlip(leftFlipper); drawFlip(rightFlipper);
+    particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 4, 4); });
+    ctx.globalAlpha = 1.0;
+
+    if (ball.active) {
+        ctx.fillStyle = "#FFF"; ctx.shadowBlur = 10; ctx.shadowColor = "#FFF";
+        ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+        if(ball.isReady) ball.y = canvas.height - 100 + (plunger.pull * 0.8);
+    }
+}
+
+function drawFlip(f) {
+    const r = f.angle * Math.PI / 180;
+    ctx.strokeStyle = "#FFD700"; ctx.lineWidth = 14; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(f.x, f.y);
+    ctx.lineTo(f.x + Math.cos(r)*f.length, f.y + Math.sin(r)*f.length);
+    ctx.stroke();
+}
+
+function createExplosion(x, y, c) { for(let i=0; i<8; i++) particles.push({ x, y, vx: (Math.random()-0.5)*12, vy: (Math.random()-0.5)*12, life: 1, color: c }); }
+
+// 控制邏輯
+window.addEventListener('keydown', e => {
+    if (!isGaming) return;
+    if (e.key === 'ArrowLeft' || e.key === 'a') leftFlipper.state = 'up';
+    if (e.key === 'ArrowRight' || e.key === 'd') rightFlipper.state = 'up';
+    if ((e.key === ' ' || e.key === 'ArrowDown') && ball.isReady) { ball.vy = -28; ball.isReady = false; }
+});
+window.addEventListener('keyup', e => {
+    if (e.key === 'ArrowLeft' || e.key === 'a') leftFlipper.state = 'down';
+    if (e.key === 'ArrowRight' || e.key === 'd') rightFlipper.state = 'down';
+});
+
+window.onpointerdown = e => {
+    if (!isGaming) return;
+    if (ball.isReady && e.clientX > canvas.width - arena.laneW - arena.sideM*2) {
+        plunger.isDragging = true; plunger.startY = e.clientY;
+    } else {
+        if(e.clientX < canvas.width/2) leftFlipper.state = 'up'; else rightFlipper.state = 'up';
+    }
+};
+window.onpointermove = e => { if (plunger.isDragging) plunger.pull = Math.max(0, Math.min(plunger.maxPull, e.clientY - plunger.startY)); };
+window.onpointerup = () => {
+    if (plunger.isDragging) {
+        if (plunger.pull > 15) { ball.vy = -18 - (plunger.pull/4); ball.isReady = false; }
+        plunger.isDragging = false; plunger.pull = 0;
+    }
+    leftFlipper.state = 'down'; rightFlipper.state = 'down';
+};
+
+function finishGame() { isGaming = false; document.getElementById('final-score').innerText = "SCORE: " + score; document.getElementById('result-modal').style.display='flex'; }
+init();
+</script>
+</body>
+</html>
