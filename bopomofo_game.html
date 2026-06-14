@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>注音拼拼樂</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; user-select: none; }
+        body {
+            font-family: "Microsoft JhengHei", "蘋方-繁", "Noto Sans TC", sans-serif;
+            background: linear-gradient(160deg, #FFF9C4 0%, #E1F5FE 100%);
+            height: 100dvh; height: 100vh;
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+
+        /* ── 頂部 ── */
+        .top-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 14px; background: white;
+            border-bottom: 3px solid #FFB74D; flex-shrink: 0;
+        }
+        .home-btn { font-size: 22px; text-decoration: none; }
+        .top-info  { display: flex; gap: 16px; }
+        .top-info span { font-size: 15px; font-weight: bold; color: #F57C00; }
+
+        /* ── 圖卡 ── */
+        .image-card {
+            margin: 8px 12px 4px;
+            background: white; border-radius: 18px;
+            border: 3px solid #FFB74D;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            padding: 8px 10px 6px; flex-shrink: 0;
+        }
+        .emoji-big { font-size: 62px; line-height: 1; }
+        .word-big  { font-size: 26px; font-weight: bold; color: #5D4037; margin-top: 3px; letter-spacing: 6px; }
+
+        /* ── 填空區 ── */
+        .answer-area {
+            display: flex; align-items: flex-end;
+            gap: 6px; padding: 8px 16px 4px;
+            flex-shrink: 0;
+            overflow-x: auto; overflow-y: visible;
+            flex-wrap: nowrap;
+            justify-content: center;
+            scrollbar-width: none;
+        }
+        .answer-area::-webkit-scrollbar { display: none; }
+
+        .slot-group {
+            display: flex; flex-direction: column;
+            align-items: center; gap: 3px;
+            flex-shrink: 0;
+        }
+        .slot-row { display: flex; gap: 5px; flex-shrink: 0; }
+        .char-label { font-size: 13px; font-weight: bold; color: #90A4AE; height: 16px; }
+
+        .group-sep { font-size: 20px; color: #B0BEC5; align-self: center; padding-bottom: 20px; flex-shrink: 0; }
+
+        .slot {
+            width: 44px; height: 50px;
+            background: white; border: 2.5px dashed #90CAF9;
+            border-radius: 11px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px; font-weight: bold; color: #1565C0;
+            transition: all 0.15s;
+        }
+        .slot.filled   { border-style: solid; border-color: #42A5F5; background: #E3F2FD; }
+        .slot.flash-ok { animation: pop   0.3s ease; border-color: #43A047; background: #C8E6C9; color: #2E7D32; border-style: solid; }
+        .slot.flash-err{ animation: shake 0.4s ease; border-color: #EF5350; background: #FFCDD2; color: #C62828; border-style: solid; }
+        @keyframes pop   { 0%{transform:scale(1)} 50%{transform:scale(1.18)} 100%{transform:scale(1)} }
+        @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+
+        /* ── 操作按鈕 ── */
+        .action-row {
+            display: flex; gap: 10px; padding: 4px 12px 4px;
+            justify-content: center; flex-shrink: 0;
+        }
+        .btn {
+            border: none; border-radius: 50px; font-weight: bold;
+            cursor: pointer; font-size: 16px;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.12);
+            transition: transform 0.1s;
+        }
+        .btn:active { transform: scale(0.92); }
+        .btn-del { background: #FFCC02; color: #5D4037; padding: 9px 20px; font-size: 20px; }
+        .btn-ok  { background: #43A047; color: white; padding: 9px 28px; }
+        .btn-ok:disabled { background: #BDBDBD; box-shadow: none; cursor: default; transform: none; }
+
+        /* ── 聲調列（4 個，無一聲） ── */
+        .tone-row {
+            display: flex; gap: 8px; justify-content: center;
+            padding: 4px 12px 4px; flex-shrink: 0;
+        }
+        .tone-card {
+            width: 60px; height: 54px;
+            background: #FFF3E0; border: 2.5px solid #FFA726;
+            border-radius: 13px;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            transition: transform 0.1s, background 0.1s;
+            flex-shrink: 0;
+        }
+        .tone-card:active { transform: scale(0.87); background: #FFE0B2; }
+        .tone-sym  { font-size: 20px; font-weight: bold; color: #E65100; line-height: 1; }
+        .tone-name { font-size: 10px; color: #BF360C; margin-top: 1px; }
+
+        /* ── 注音卡片 ── */
+        .bopo-area { flex: 1; overflow-y: auto; padding: 4px 10px 8px; }
+        .bopo-grid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+        .bopo-card {
+            width: 50px; height: 50px;
+            background: white; border: 2.5px solid #B39DDB;
+            border-radius: 13px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px; font-weight: bold; color: #4527A0;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            transition: transform 0.1s, background 0.1s;
+        }
+        .bopo-card:active { transform: scale(0.87); background: #EDE7F6; }
+        .bopo-card.used   { opacity: 0.22; pointer-events: none; }
+
+        /* ── 開始 / 結束畫面 ── */
+        .fullscreen {
+            position: fixed; inset: 0;
+            background: linear-gradient(160deg, #FFF9C4 0%, #E1F5FE 100%);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            z-index: 500; gap: 14px;
+        }
+        .fullscreen h1 { font-size: 36px; color: #F57C00; }
+        .fullscreen p  { font-size: 16px; color: #555; text-align: center; padding: 0 24px; line-height: 1.8; }
+        .score-big     { font-size: 64px; font-weight: bold; color: #43A047; }
+        .score-sub     { font-size: 18px; color: #777; margin-top: -8px; }
+        .btn-main {
+            background: #FF8F00; color: white; border: none; border-radius: 50px;
+            padding: 16px 46px; font-size: 22px; font-weight: bold;
+            cursor: pointer; box-shadow: 0 5px 16px rgba(255,143,0,0.35);
+        }
+        .btn-secondary {
+            background: white; color: #F57C00; border: 2px solid #FFB74D;
+            border-radius: 50px; padding: 12px 34px; font-size: 18px; font-weight: bold;
+            cursor: pointer; text-decoration: none; display: block; text-align: center;
+        }
+
+        /* ── 煙火畫布 ── */
+        #fw-canvas {
+            position: fixed; inset: 0;
+            pointer-events: none; z-index: 9999;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<!-- 煙火畫布（蓋全畫面，pointer-events:none 不影響點擊） -->
+<canvas id="fw-canvas"></canvas>
+
+<!-- 開始畫面 -->
+<div class="fullscreen" id="start-screen">
+    <div style="font-size:72px">🐧</div>
+    <h1>注音拼拼樂</h1>
+    <p>看圖片，把每個字的注音依序拼出來！<br>每填對一格就得一分 ⭐<br>二三四聲和輕聲要記得選喔！</p>
+    <button class="btn-main" onclick="startGame()">▶ 開始遊戲</button>
+    <a href="index.html" class="btn-secondary">回到大廳</a>
+</div>
+
+<!-- 遊戲畫面 -->
+<div id="game-screen" style="display:none; flex-direction:column; height:100vh;">
+    <div class="top-bar">
+        <a href="index.html" class="home-btn">🏠</a>
+        <div class="top-info">
+            <span id="s-label">⭐ 高分 0</span>
+        </div>
+    </div>
+
+    <div class="image-card">
+        <div class="emoji-big" id="card-emoji">🍎</div>
+        <div class="word-big"  id="card-word">蘋果</div>
+    </div>
+
+    <div class="answer-area" id="answer-area"></div>
+
+    <div class="action-row">
+        <button class="btn btn-del" onclick="doDelete()">⌫</button>
+        <button class="btn btn-ok" id="btn-ok" onclick="doConfirm()" disabled>確 認</button>
+    </div>
+
+    <div class="tone-row" id="tone-row"></div>
+
+    <div class="bopo-area">
+        <div class="bopo-grid" id="bopo-grid"></div>
+    </div>
+</div>
+
+<!-- 結束畫面 -->
+<div class="fullscreen" id="end-screen" style="display:none;">
+    <div style="font-size:72px" id="end-icon">🎉</div>
+    <div class="score-big" id="end-score">0</div>
+    <div class="score-sub" id="end-sub">/ 0 格正確</div>
+    <p id="end-msg">繼續加油！</p>
+    <button class="btn-main" onclick="startGame()">再玩一次</button>
+    <a href="index.html" class="btn-secondary">回到大廳</a>
+</div>
+
+<script>
+// ── 題庫（一聲不需標聲調，不加 ˉ） ──
+const VOCAB = [
+    // ── 動物 ──
+    { emoji:'🐶', word:'小狗',   chars:[{c:'小',a:['ㄒ','ㄧ','ㄠ','ˇ']},{c:'狗',a:['ㄍ','ㄡ','ˇ']}] },
+    { emoji:'🐱', word:'小貓',   chars:[{c:'小',a:['ㄒ','ㄧ','ㄠ','ˇ']},{c:'貓',a:['ㄇ','ㄠ']}] },
+    { emoji:'🐰', word:'兔子',   chars:[{c:'兔',a:['ㄊ','ㄨ','ˋ']},{c:'子',a:['ㄗ','˙']}] },
+    { emoji:'🐸', word:'青蛙',   chars:[{c:'青',a:['ㄑ','ㄧ','ㄥ']},{c:'蛙',a:['ㄨ','ㄚ']}] },
+    { emoji:'🦋', word:'蝴蝶',   chars:[{c:'蝴',a:['ㄏ','ㄨ','ˊ']},{c:'蝶',a:['ㄉ','ㄧ','ㄝ','ˊ']}] },
+    { emoji:'⭐', word:'星星',   chars:[{c:'星',a:['ㄒ','ㄧ','ㄥ']},{c:'星',a:['ㄒ','ㄧ','ㄥ']}] },
+    { emoji:'🐘', word:'大象',   chars:[{c:'大',a:['ㄉ','ㄚ','ˋ']},{c:'象',a:['ㄒ','ㄧ','ㄤ','ˋ']}] },
+    { emoji:'🦁', word:'獅子',   chars:[{c:'獅',a:['ㄕ']},{c:'子',a:['ㄗ','˙']}] },
+    { emoji:'🐼', word:'貓熊', dedup:'panda', chars:[{c:'貓',a:['ㄇ','ㄠ']},{c:'熊',a:['ㄒ','ㄩ','ㄥ','ˊ']}] },
+    { emoji:'🐼', word:'熊貓', dedup:'panda', chars:[{c:'熊',a:['ㄒ','ㄩ','ㄥ','ˊ']},{c:'貓',a:['ㄇ','ㄠ']}] },
+    { emoji:'🐟', word:'金魚',   chars:[{c:'金',a:['ㄐ','ㄧ','ㄣ']},{c:'魚',a:['ㄩ','ˊ']}] },
+    { emoji:'🐔', word:'小雞',   chars:[{c:'小',a:['ㄒ','ㄧ','ㄠ','ˇ']},{c:'雞',a:['ㄐ','ㄧ']}] },
+    { emoji:'🐄', word:'乳牛',   chars:[{c:'乳',a:['ㄖ','ㄨ','ˇ']},{c:'牛',a:['ㄋ','ㄧ','ㄡ','ˊ']}] },
+    { emoji:'🐷', word:'小豬',   chars:[{c:'小',a:['ㄒ','ㄧ','ㄠ','ˇ']},{c:'豬',a:['ㄓ','ㄨ']}] },
+    { emoji:'🦊', word:'狐狸',   chars:[{c:'狐',a:['ㄏ','ㄨ','ˊ']},{c:'狸',a:['ㄌ','ㄧ','˙']}] },
+    { emoji:'🐬', word:'海豚',   chars:[{c:'海',a:['ㄏ','ㄞ','ˇ']},{c:'豚',a:['ㄊ','ㄨ','ㄣ','ˊ']}] },
+    { emoji:'🦓', word:'斑馬',   chars:[{c:'斑',a:['ㄅ','ㄢ']},{c:'馬',a:['ㄇ','ㄚ','ˇ']}] },
+    { emoji:'🐧', word:'企鵝',   chars:[{c:'企',a:['ㄑ','ㄧ','ˇ']},{c:'鵝',a:['ㄜ','ˊ']}] },
+    { emoji:'🐙', word:'章魚',   chars:[{c:'章',a:['ㄓ','ㄤ']},{c:'魚',a:['ㄩ','ˊ']}] },
+    { emoji:'🦀', word:'螃蟹',   chars:[{c:'螃',a:['ㄆ','ㄤ','ˊ']},{c:'蟹',a:['ㄒ','ㄧ','ㄝ','ˋ']}] },
+    { emoji:'🐢', word:'烏龜',   chars:[{c:'烏',a:['ㄨ']},{c:'龜',a:['ㄍ','ㄨ','ㄟ']}] },
+    { emoji:'🐯', word:'老虎',   chars:[{c:'老',a:['ㄌ','ㄠ','ˇ']},{c:'虎',a:['ㄏ','ㄨ','ˇ']}] },
+    { emoji:'🐦', word:'小鳥',   chars:[{c:'小',a:['ㄒ','ㄧ','ㄠ','ˇ']},{c:'鳥',a:['ㄋ','ㄧ','ㄠ','ˇ']}] },
+    { emoji:'🦒', word:'長頸鹿', chars:[{c:'長',a:['ㄔ','ㄤ','ˊ']},{c:'頸',a:['ㄐ','ㄧ','ㄥ','ˇ']},{c:'鹿',a:['ㄌ','ㄨ','ˋ']}] },
+    { emoji:'🐑', word:'綿羊',   chars:[{c:'綿',a:['ㄇ','ㄧ','ㄢ','ˊ']},{c:'羊',a:['ㄧ','ㄤ','ˊ']}] },
+    { emoji:'🦈', word:'鯊魚',   chars:[{c:'鯊',a:['ㄕ','ㄚ']},{c:'魚',a:['ㄩ','ˊ']}] },
+    { emoji:'🐊', word:'鱷魚',   chars:[{c:'鱷',a:['ㄜ','ˋ']},{c:'魚',a:['ㄩ','ˊ']}] },
+    { emoji:'🦚', word:'孔雀',   chars:[{c:'孔',a:['ㄎ','ㄨ','ㄥ','ˇ']},{c:'雀',a:['ㄑ','ㄩ','ㄝ','ˋ']}] },
+    { emoji:'🐿️', word:'松鼠',   chars:[{c:'松',a:['ㄙ','ㄨ','ㄥ','ˊ']},{c:'鼠',a:['ㄕ','ㄨ','ˇ']}] },
+    { emoji:'🦜', word:'鸚鵡',   chars:[{c:'鸚',a:['ㄧ','ㄥ']},{c:'鵡',a:['ㄨ','ˇ']}] },
+    { emoji:'🐋', word:'鯨魚',   chars:[{c:'鯨',a:['ㄐ','ㄧ','ㄥ']},{c:'魚',a:['ㄩ','ˊ']}] },
+    // ── 食物 ──
+    { emoji:'🍎', word:'蘋果',   chars:[{c:'蘋',a:['ㄆ','ㄧ','ㄥ','ˊ']},{c:'果',a:['ㄍ','ㄨ','ㄛ','ˇ']}] },
+    { emoji:'🍌', word:'香蕉',   chars:[{c:'香',a:['ㄒ','ㄧ','ㄤ']},{c:'蕉',a:['ㄐ','ㄧ','ㄠ']}] },
+    { emoji:'🍊', word:'橘子',   chars:[{c:'橘',a:['ㄐ','ㄩ','ˊ']},{c:'子',a:['ㄗ','˙']}] },
+    { emoji:'🍇', word:'葡萄',   chars:[{c:'葡',a:['ㄆ','ㄨ','ˊ']},{c:'萄',a:['ㄊ','ㄠ','ˊ']}] },
+    { emoji:'🍓', word:'草莓',   chars:[{c:'草',a:['ㄘ','ㄠ','ˇ']},{c:'莓',a:['ㄇ','ㄟ','ˊ']}] },
+    { emoji:'🍉', word:'西瓜',   chars:[{c:'西',a:['ㄒ','ㄧ']},{c:'瓜',a:['ㄍ','ㄨ','ㄚ']}] },
+    { emoji:'🍒', word:'櫻桃',   chars:[{c:'櫻',a:['ㄧ','ㄥ']},{c:'桃',a:['ㄊ','ㄠ','ˊ']}] },
+    { emoji:'🌽', word:'玉米',   chars:[{c:'玉',a:['ㄩ','ˋ']},{c:'米',a:['ㄇ','ㄧ','ˇ']}] },
+    { emoji:'🫐', word:'藍莓',   chars:[{c:'藍',a:['ㄌ','ㄢ','ˊ']},{c:'莓',a:['ㄇ','ㄟ','ˊ']}] },
+    { emoji:'🍰', word:'蛋糕',   chars:[{c:'蛋',a:['ㄉ','ㄢ','ˋ']},{c:'糕',a:['ㄍ','ㄠ']}] },
+    { emoji:'🥐', word:'麵包',   chars:[{c:'麵',a:['ㄇ','ㄧ','ㄢ','ˋ']},{c:'包',a:['ㄅ','ㄠ']}] },
+    { emoji:'🍜', word:'麵條',   chars:[{c:'麵',a:['ㄇ','ㄧ','ㄢ','ˋ']},{c:'條',a:['ㄊ','ㄧ','ㄠ','ˊ']}] },
+    { emoji:'🍚', word:'白飯',   chars:[{c:'白',a:['ㄅ','ㄞ','ˊ']},{c:'飯',a:['ㄈ','ㄢ','ˋ']}] },
+    { emoji:'🥚', word:'雞蛋',   chars:[{c:'雞',a:['ㄐ','ㄧ']},{c:'蛋',a:['ㄉ','ㄢ','ˋ']}] },
+    { emoji:'🍡', word:'湯圓',   chars:[{c:'湯',a:['ㄊ','ㄤ']},{c:'圓',a:['ㄩ','ㄢ','ˊ']}] },
+    { emoji:'🥟', word:'水餃',   chars:[{c:'水',a:['ㄕ','ㄨ','ㄟ','ˇ']},{c:'餃',a:['ㄐ','ㄧ','ㄠ','ˇ']}] },
+    // ── 植物 / 自然 ──
+    { emoji:'🌸', word:'花朵',   chars:[{c:'花',a:['ㄏ','ㄨ','ㄚ']},{c:'朵',a:['ㄉ','ㄨ','ㄛ','ˇ']}] },
+    { emoji:'🌙', word:'月亮',   chars:[{c:'月',a:['ㄩ','ㄝ','ˋ']},{c:'亮',a:['ㄌ','ㄧ','ㄤ','ˋ']}] },
+    { emoji:'🌈', word:'彩虹',   chars:[{c:'彩',a:['ㄘ','ㄞ','ˇ']},{c:'虹',a:['ㄏ','ㄨ','ㄥ','ˊ']}] },
+    { emoji:'🌳', word:'大樹',   chars:[{c:'大',a:['ㄉ','ㄚ','ˋ']},{c:'樹',a:['ㄕ','ㄨ','ˋ']}] },
+    { emoji:'☀️', word:'太陽',   chars:[{c:'太',a:['ㄊ','ㄞ','ˋ']},{c:'陽',a:['ㄧ','ㄤ','ˊ']}] },
+    { emoji:'🍁', word:'樹葉',   chars:[{c:'樹',a:['ㄕ','ㄨ','ˋ']},{c:'葉',a:['ㄧ','ㄝ','ˋ']}] },
+    { emoji:'🌻', word:'向日葵', chars:[{c:'向',a:['ㄒ','ㄧ','ㄤ','ˋ']},{c:'日',a:['ㄖ','ˋ']},{c:'葵',a:['ㄎ','ㄨ','ㄟ','ˊ']}] },
+    { emoji:'🌺', word:'玫瑰',   chars:[{c:'玫',a:['ㄇ','ㄟ','ˊ']},{c:'瑰',a:['ㄍ','ㄨ','ㄟ','ˋ']}] },
+    { emoji:'🌼', word:'菊花',   chars:[{c:'菊',a:['ㄐ','ㄩ','ˊ']},{c:'花',a:['ㄏ','ㄨ','ㄚ']}] },
+    { emoji:'🍄', word:'蘑菇',   chars:[{c:'蘑',a:['ㄇ','ㄛ','ˊ']},{c:'菇',a:['ㄍ','ㄨ','˙']}] },
+    { emoji:'🎋', word:'竹子',   chars:[{c:'竹',a:['ㄓ','ㄨ','ˊ']},{c:'子',a:['ㄗ','˙']}] },
+    { emoji:'🌋', word:'火山',   chars:[{c:'火',a:['ㄏ','ㄨ','ㄛ','ˇ']},{c:'山',a:['ㄕ','ㄢ']}] },
+    { emoji:'🌊', word:'波浪',   chars:[{c:'波',a:['ㄅ','ㄛ']},{c:'浪',a:['ㄌ','ㄤ','ˋ']}] },
+    { emoji:'🌧️', word:'下雨',   chars:[{c:'下',a:['ㄒ','ㄧ','ㄚ','ˋ']},{c:'雨',a:['ㄩ','ˇ']}] },
+    { emoji:'⛈️', word:'打雷',   chars:[{c:'打',a:['ㄉ','ㄚ','ˇ']},{c:'雷',a:['ㄌ','ㄟ','ˊ']}] },
+    { emoji:'⛄', word:'雪人',   chars:[{c:'雪',a:['ㄒ','ㄩ','ㄝ','ˇ']},{c:'人',a:['ㄖ','ㄣ','ˊ']}] },
+    { emoji:'❄️', word:'雪花',   chars:[{c:'雪',a:['ㄒ','ㄩ','ㄝ','ˇ']},{c:'花',a:['ㄏ','ㄨ','ㄚ']}] },
+    { emoji:'🏖️', word:'沙灘',   chars:[{c:'沙',a:['ㄕ','ㄚ']},{c:'灘',a:['ㄊ','ㄢ']}] },
+    { emoji:'🪸', word:'珊瑚',   chars:[{c:'珊',a:['ㄕ','ㄢ']},{c:'瑚',a:['ㄏ','ㄨ','ˊ']}] },
+    // ── 交通 ──
+    { emoji:'🚗', word:'汽車',   chars:[{c:'汽',a:['ㄑ','ㄧ','ˋ']},{c:'車',a:['ㄔ','ㄜ']}] },
+    { emoji:'🚂', word:'火車',   chars:[{c:'火',a:['ㄏ','ㄨ','ㄛ','ˇ']},{c:'車',a:['ㄔ','ㄜ']}] },
+    { emoji:'✈️', word:'飛機',   chars:[{c:'飛',a:['ㄈ','ㄟ']},{c:'機',a:['ㄐ','ㄧ']}] },
+    { emoji:'🚢', word:'輪船',   chars:[{c:'輪',a:['ㄌ','ㄨ','ㄣ','ˊ']},{c:'船',a:['ㄔ','ㄨ','ㄢ','ˊ']}] },
+    { emoji:'🚀', word:'火箭',   chars:[{c:'火',a:['ㄏ','ㄨ','ㄛ','ˇ']},{c:'箭',a:['ㄐ','ㄧ','ㄢ','ˋ']}] },
+    // ── 文具玩具 ──
+    { emoji:'🎒', word:'書包',   chars:[{c:'書',a:['ㄕ','ㄨ']},{c:'包',a:['ㄅ','ㄠ']}] },
+    { emoji:'✏️', word:'鉛筆',   chars:[{c:'鉛',a:['ㄑ','ㄧ','ㄢ']},{c:'筆',a:['ㄅ','ㄧ','ˇ']}] },
+    { emoji:'🖍️', word:'蠟筆',   chars:[{c:'蠟',a:['ㄌ','ㄚ','ˋ']},{c:'筆',a:['ㄅ','ㄧ','ˇ']}] },
+    { emoji:'🎈', word:'氣球',   chars:[{c:'氣',a:['ㄑ','ㄧ','ˋ']},{c:'球',a:['ㄑ','ㄧ','ㄡ','ˊ']}] },
+    { emoji:'🎁', word:'禮物',   chars:[{c:'禮',a:['ㄌ','ㄧ','ˇ']},{c:'物',a:['ㄨ','ˋ']}] },
+    { emoji:'🧩', word:'拼圖',   chars:[{c:'拼',a:['ㄆ','ㄧ','ㄣ']},{c:'圖',a:['ㄊ','ㄨ','ˊ']}] },
+    { emoji:'🧸', word:'玩具',   chars:[{c:'玩',a:['ㄨ','ㄢ','ˊ']},{c:'具',a:['ㄐ','ㄩ','ˋ']}] },
+    { emoji:'🪁', word:'風箏',   chars:[{c:'風',a:['ㄈ','ㄥ']},{c:'箏',a:['ㄓ','ㄥ']}] },
+    { emoji:'🪣', word:'水桶',   chars:[{c:'水',a:['ㄕ','ㄨ','ㄟ','ˇ']},{c:'桶',a:['ㄊ','ㄨ','ㄥ','ˇ']}] },
+    // ── 運動 ──
+    { emoji:'🎵', word:'音樂',   chars:[{c:'音',a:['ㄧ','ㄣ']},{c:'樂',a:['ㄩ','ㄝ','ˋ']}] },
+    { emoji:'🏀', word:'籃球',   chars:[{c:'籃',a:['ㄌ','ㄢ','ˊ']},{c:'球',a:['ㄑ','ㄧ','ㄡ','ˊ']}] },
+    { emoji:'⚽', word:'足球',   chars:[{c:'足',a:['ㄗ','ㄨ','ˊ']},{c:'球',a:['ㄑ','ㄧ','ㄡ','ˊ']}] },
+    { emoji:'🏊', word:'游泳',   chars:[{c:'游',a:['ㄧ','ㄡ','ˊ']},{c:'泳',a:['ㄩ','ㄥ','ˇ']}] },
+    // ── 身體 ──
+    { emoji:'👁️', word:'眼睛',   chars:[{c:'眼',a:['ㄧ','ㄢ','ˇ']},{c:'睛',a:['ㄐ','ㄧ','ㄥ','˙']}] },
+    { emoji:'👃', word:'鼻子',   chars:[{c:'鼻',a:['ㄅ','ㄧ','ˊ']},{c:'子',a:['ㄗ','˙']}] },
+    { emoji:'👄', word:'嘴巴',   chars:[{c:'嘴',a:['ㄗ','ㄨ','ㄟ','ˇ']},{c:'巴',a:['ㄅ','ㄚ','˙']}] },
+    { emoji:'👂', word:'耳朵',   chars:[{c:'耳',a:['ㄦ','ˇ']},{c:'朵',a:['ㄉ','ㄨ','ㄛ','˙']}] },
+    { emoji:'🦷', word:'牙齒',   chars:[{c:'牙',a:['ㄧ','ㄚ','ˊ']},{c:'齒',a:['ㄔ','ˇ']}] },
+    // ── 生活 ──
+    { emoji:'🏠', word:'房子',   chars:[{c:'房',a:['ㄈ','ㄤ','ˊ']},{c:'子',a:['ㄗ','˙']}] },
+    { emoji:'🏫', word:'學校',   chars:[{c:'學',a:['ㄒ','ㄩ','ㄝ','ˊ']},{c:'校',a:['ㄒ','ㄧ','ㄠ','ˋ']}] },
+    { emoji:'🌂', word:'雨傘',   chars:[{c:'雨',a:['ㄩ','ˇ']},{c:'傘',a:['ㄙ','ㄢ','ˇ']}] },
+    { emoji:'🍵', word:'茶杯',   chars:[{c:'茶',a:['ㄔ','ㄚ','ˊ']},{c:'杯',a:['ㄅ','ㄟ']}] },
+    { emoji:'🪞', word:'鏡子',   chars:[{c:'鏡',a:['ㄐ','ㄧ','ㄥ','ˋ']},{c:'子',a:['ㄗ','˙']}] },
+    { emoji:'📺', word:'電視',   chars:[{c:'電',a:['ㄉ','ㄧ','ㄢ','ˋ']},{c:'視',a:['ㄕ','ˋ']}] },
+    { emoji:'🖥️', word:'電腦',   chars:[{c:'電',a:['ㄉ','ㄧ','ㄢ','ˋ']},{c:'腦',a:['ㄋ','ㄠ','ˇ']}] },
+    { emoji:'📱', word:'手機',   chars:[{c:'手',a:['ㄕ','ㄡ','ˇ']},{c:'機',a:['ㄐ','ㄧ']}] },
+    { emoji:'🧲', word:'磁鐵',   chars:[{c:'磁',a:['ㄘ','ˊ']},{c:'鐵',a:['ㄊ','ㄧ','ㄝ','ˋ']}] },
+    { emoji:'🎨', word:'畫畫',   chars:[{c:'畫',a:['ㄏ','ㄨ','ㄚ','ˋ']},{c:'畫',a:['ㄏ','ㄨ','ㄚ','ˋ']}] },
+    { emoji:'🛋️', word:'沙發',   chars:[{c:'沙',a:['ㄕ','ㄚ']},{c:'發',a:['ㄈ','ㄚ']}] },
+];
+
+// 子音＋韻母池（不含聲調）
+const BOPO_POOL = [
+    'ㄅ','ㄆ','ㄇ','ㄈ','ㄉ','ㄊ','ㄋ','ㄌ',
+    'ㄍ','ㄎ','ㄏ','ㄐ','ㄑ','ㄒ',
+    'ㄓ','ㄔ','ㄕ','ㄖ','ㄗ','ㄘ','ㄙ',
+    'ㄚ','ㄛ','ㄜ','ㄝ','ㄞ','ㄟ','ㄠ','ㄡ',
+    'ㄢ','ㄣ','ㄤ','ㄥ','ㄦ','ㄧ','ㄨ','ㄩ'
+];
+// 聲調（4 個，不含一聲 ˉ）
+const TONE_DEFS = [
+    { sym:'ˊ', name:'二聲' },
+    { sym:'ˇ', name:'三聲' },
+    { sym:'ˋ', name:'四聲' },
+    { sym:'˙', name:'輕聲' },
+];
+const TONES = new Set(TONE_DEFS.map(t=>t.sym));
+
+// ── 狀態 ──
+let groups = [];
+let highScore = 0;
+let confirmed = false;
+let sessionScore = 0;
+let questionNum = 0;
+let questionPool = [];
+
+function shuffle(arr) {
+    const a=[...arr];
+    for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+    return a;
+}
+
+function buildPool() {
+    const seen = new Set();
+    return shuffle(VOCAB).filter(q => {
+        if (q.dedup) {
+            if (seen.has(q.dedup)) return false;
+            seen.add(q.dedup);
+        }
+        return true;
+    });
+}
+
+// ── 開始新遊戲（重置分數） ──
+function startGame() {
+    hide('start-screen'); hide('end-screen'); show('game-screen');
+    sessionScore = 0;
+    questionNum = 0;
+    questionPool = buildPool();
+    loadNextQuestion();
+}
+
+// ── 載入下一題（不重置分數） ──
+function loadNextQuestion() {
+    confirmed = false;
+    // 如果跑完一輪就重新洗牌
+    if (questionNum >= questionPool.length) questionPool = buildPool();
+    const q = questionPool[questionNum++];
+    groups = q.chars.map(ch => ({c:ch.c, a:ch.a, filled:[]}));
+
+    document.getElementById('s-label').textContent = `第${questionNum}題  ⭐${sessionScore}格`;
+    document.getElementById('card-emoji').textContent = q.emoji;
+    document.getElementById('card-word').textContent  = q.word;
+
+    renderToneRow();
+    renderSlots();
+    renderBopoCards();
+    document.getElementById('btn-ok').disabled = true;
+}
+
+// ── 聲調列 ──
+function renderToneRow() {
+    const row = document.getElementById('tone-row');
+    row.innerHTML = '';
+    TONE_DEFS.forEach(({sym, name}) => {
+        const div = document.createElement('div');
+        div.className = 'tone-card';
+        div.innerHTML = `<span class="tone-sym">${sym}</span><span class="tone-name">${name}</span>`;
+        div.addEventListener('pointerdown', () => tapTone(sym));
+        row.appendChild(div);
+    });
+}
+
+// ── 填空格 ──
+function renderSlots() {
+    const area = document.getElementById('answer-area');
+    area.innerHTML = '';
+    groups.forEach((g, gi) => {
+        if (gi > 0) {
+            const sep = document.createElement('div');
+            sep.className = 'group-sep'; sep.textContent = '‧';
+            area.appendChild(sep);
+        }
+        const grpDiv = document.createElement('div');
+        grpDiv.className = 'slot-group';
+
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'slot-row';
+        g.a.forEach((_, si) => {
+            const slot = document.createElement('div');
+            const val = g.filled[si] || '';
+            slot.className = 'slot' + (val ? ' filled' : '');
+            slot.textContent = val;
+            slot.id = `slot-${gi}-${si}`;
+            rowDiv.appendChild(slot);
+        });
+
+        const lbl = document.createElement('div');
+        lbl.className = 'char-label'; lbl.textContent = g.c;
+        grpDiv.appendChild(rowDiv);
+        grpDiv.appendChild(lbl);
+        area.appendChild(grpDiv);
+    });
+}
+
+// ── 子音/韻母卡片 ──
+function renderBopoCards() {
+    const neededBopo = [];
+    groups.forEach(g => neededBopo.push(...g.a.filter(s => !TONES.has(s))));
+    const uniqueNeeded = [...new Set(neededBopo)];
+    const distractors = shuffle(BOPO_POOL.filter(b => !uniqueNeeded.includes(b)))
+        .slice(0, Math.max(14 - neededBopo.length, 6));
+    const pool = shuffle([...neededBopo, ...distractors]);
+
+    const grid = document.getElementById('bopo-grid');
+    grid.innerHTML = '';
+    pool.forEach((sym, idx) => {
+        const div = document.createElement('div');
+        div.className = 'bopo-card';
+        div.textContent = sym;
+        div.id = `bc-${idx}`;
+        div.addEventListener('pointerdown', () => tapBopo(sym, idx));
+        grid.appendChild(div);
+    });
+}
+
+function nextGroup() {
+    return groups.find(g => g.filled.length < g.a.length);
+}
+
+function tapTone(sym) {
+    if (confirmed) return;
+    const g = nextGroup(); if (!g) return;
+    g.filled.push(sym);
+    renderSlots(); checkConfirmBtn();
+}
+
+function tapBopo(sym, idx) {
+    if (confirmed) return;
+    const g = nextGroup(); if (!g) return;
+    g.filled.push(sym);
+    document.getElementById(`bc-${idx}`).classList.add('used');
+    renderSlots(); checkConfirmBtn();
+}
+
+function doDelete() {
+    if (confirmed) return;
+    let target = null;
+    for (let i=groups.length-1; i>=0; i--) {
+        if (groups[i].filled.length > 0) { target=groups[i]; break; }
+    }
+    if (!target) return;
+    const removed = target.filled.pop();
+    if (!TONES.has(removed)) {
+        const usedCards = [...document.querySelectorAll('.bopo-card.used')];
+        for (let i=usedCards.length-1; i>=0; i--) {
+            if (usedCards[i].textContent === removed) { usedCards[i].classList.remove('used'); break; }
+        }
+    }
+    renderSlots(); checkConfirmBtn();
+}
+
+function checkConfirmBtn() {
+    document.getElementById('btn-ok').disabled =
+        confirmed || !groups.every(g => g.filled.length === g.a.length);
+}
+
+// ── 確認（只能按一次） ──
+function doConfirm() {
+    if (confirmed) return;
+    confirmed = true;
+    document.getElementById('btn-ok').disabled = true;
+
+    // 計算每格對錯
+    let correctSlots = 0, totalSlots = 0;
+    groups.forEach((g, gi) => {
+        g.a.forEach((ans, si) => {
+            totalSlots++;
+            const isOk = g.filled[si] === ans;
+            if (isOk) correctSlots++;
+            const slot = document.getElementById(`slot-${gi}-${si}`);
+            if (slot) {
+                slot.textContent = g.filled[si] || '';
+                slot.classList.remove('filled');
+                slot.classList.add(isOk ? 'flash-ok' : 'flash-err');
+            }
+        });
+    });
+
+    const perfect = correctSlots === totalSlots;
+
+    // 累計分數
+    sessionScore += correctSlots;
+    if (sessionScore > highScore) {
+        highScore = sessionScore;
+        try { localStorage.setItem('bopomofo_score', highScore); } catch(e){}
+    }
+
+    if (perfect) launchFireworks();
+
+    // 答對：2秒後下一題；答錯：1.5秒後下一題（不顯示結算頁）
+    setTimeout(loadNextQuestion, perfect ? 2000 : 1500);
+}
+
+// ── 煙火 ──
+function launchFireworks() {
+    const canvas = document.getElementById('fw-canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    canvas.style.display = 'block';
+
+    const COLORS = ['#FFD700','#FF6B6B','#4FC3F7','#81C784','#BA68C8','#FFB74D','#F06292','#4DB6AC'];
+    const particles = [];
+    const W = canvas.width, H = canvas.height;
+
+    // 5 次爆炸位置
+    const positions = [
+        [W*0.5,  H*0.28],
+        [W*0.22, H*0.22],
+        [W*0.78, H*0.22],
+        [W*0.3,  H*0.48],
+        [W*0.7,  H*0.42],
+    ];
+    let burstsLeft = positions.length;  // 追蹤還有幾次爆炸未完成
+
+    function burst(cx, cy) {
+        const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+        for (let i = 0; i < 70; i++) {
+            const angle = (Math.PI * 2 * i) / 70 + Math.random() * 0.25;
+            const speed = 2.5 + Math.random() * 5;
+            particles.push({
+                x: cx, y: cy,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - 1.5,
+                life: 1.0,
+                decay: 0.011 + Math.random() * 0.009,
+                size: 3 + Math.random() * 4,
+                color
+            });
+        }
+        burstsLeft--;
+    }
+
+    positions.forEach(([cx,cy], i) => setTimeout(() => burst(cx, cy), i * 300));
+
+    function animate() {
+        ctx.clearRect(0, 0, W, H);
+        for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i];
+            p.x  += p.vx; p.y += p.vy;
+            p.vy += 0.12;
+            p.life -= p.decay;
+            if (p.life <= 0) { particles.splice(i, 1); continue; }
+            ctx.globalAlpha = p.life;
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        // 繼續：還有粒子 OR 還有爆炸未觸發
+        if (particles.length > 0 || burstsLeft > 0) {
+            requestAnimationFrame(animate);
+        } else {
+            ctx.clearRect(0, 0, W, H);
+            canvas.style.display = 'none';
+        }
+    }
+    requestAnimationFrame(animate);  // 用 rAF 啟動，避免同步阻塞
+}
+
+function show(id) { document.getElementById(id).style.display='flex'; }
+function hide(id) { document.getElementById(id).style.display='none'; }
+
+// 初始載入高分
+try { highScore = parseInt(localStorage.getItem('bopomofo_score')||0); } catch(e){}
+</script>
+</body>
+</html>
