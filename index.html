@@ -8,9 +8,9 @@
         :root { --main-bg: #F5F7F2; --card-bg: #FFFFFF; --text-main: #2C3E50; --accent: #81C784; --pink: #FF8A80; }
         * { box-sizing: border-box; font-family: -apple-system, "Microsoft JhengHei", sans-serif; }
         body { background-color: var(--main-bg); margin: 0; padding-bottom: 60px; color: var(--text-main); }
-        
-        header { 
-            background: white; padding: 15px; text-align: center; font-weight: bold; 
+
+        header {
+            background: white; padding: 15px; text-align: center; font-weight: bold;
             border-bottom: 1px solid #E0E0E0; position: sticky; top: 0; z-index: 100;
         }
         header h1 { font-size: 20px; color: var(--accent); margin: 0; letter-spacing: 2px; }
@@ -24,10 +24,11 @@
         .user-info b { font-size: 15px; display: block; }
         .user-info span { font-size: 12px; color: #999; }
 
-        .game-display { 
-            width: 100%; height: 200px; background: #f9f9f9; 
+        .game-display {
+            width: 100%; height: 200px; background: #f9f9f9;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             text-decoration: none; border-top: 1px solid #F5F5F5; border-bottom: 1px solid #F5F5F5;
+            cursor: pointer;
         }
         .game-icon { font-size: 60px; margin-bottom: 10px; transition: transform 0.3s; }
         .game-display:hover .game-icon { transform: scale(1.1); }
@@ -35,7 +36,7 @@
 
         .post-content { padding: 12px; }
         .post-caption { font-size: 14px; margin-bottom: 10px; line-height: 1.5; }
-        .score-badge { display: inline-block; background: var(--road-gray, #90A4AE); color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .score-badge { display: inline-block; background: #90A4AE; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
         .score-badge.top { background: var(--pink); }
 
         .nav-bar { position: fixed; bottom: 0; width: 100%; height: 60px; background: white; border-top: 1px solid #E0E0E0; display: flex; justify-content: space-around; align-items: center; }
@@ -48,6 +49,8 @@
 <header><h1>EnEnGram</h1></header>
 
 <div class="feed">
+
+    <!-- 1. 賽車 -->
     <div class="post">
         <div class="post-header">
             <div class="avatar">🐧</div>
@@ -59,24 +62,138 @@
         </a>
         <div class="post-content">
             <div class="post-caption">今天跟好朋友們在森林小徑比賽，大家開賽車的樣子超帥！這條路彎彎曲曲的，一定要專心看前面喔！🏎️🌲</div>
-            <div id="forest-score-display" class="score-badge top">我的最高積分：0</div>
+            <span id="racing-score" class="score-badge top">我的最高積分：0</span>
         </div>
     </div>
 
+    <!-- 2. 保齡球 -->
     <div class="post">
         <div class="post-header">
             <div class="avatar">🐧</div>
             <div class="user-info"><b>阿恩恩</b><span>2月15日 · 企鵝冰原</span></div>
         </div>
-        <div class="game-display" style="background: #E3F2FD;">
+        <a href="bowling_game.html" class="game-display" style="background: #E3F2FD;">
             <div class="game-icon">🎳</div>
             <div class="game-name">小企鵝保齡球</div>
-        </div>
+        </a>
         <div class="post-content">
             <div class="post-caption">企鵝爸爸教我打保齡球，我一次就把球瓶全部撞倒了！🐧💥</div>
-            <div class="score-badge">我的最高積分：850</div>
+            <span id="bowling-score" class="score-badge">我的最高積分：0</span>
         </div>
     </div>
+
+    <!-- 3. 打磚塊 -->
+    <div class="post">
+        <div class="post-header">
+            <div class="avatar">🐧</div>
+            <div class="user-info"><b>阿恩恩</b><span>2月14日 · 磚塊城堡</span></div>
+        </div>
+        <a href="brick_game.html" class="game-display" style="background: linear-gradient(180deg, #FFF9C4 0%, #FFF176 100%);">
+            <div class="game-icon">💣🧱</div>
+            <div class="game-name">炸彈打磚塊</div>
+        </a>
+        <div class="post-content">
+            <div class="post-caption">用炸彈球轟掉所有磚塊！炸彈爆炸的時候超級帥氣💥，快來挑戰！</div>
+            <span id="brick-score" class="score-badge">我的最高積分：0</span>
+        </div>
+    </div>
+
+    <!-- 4. 水果 -->
+    <div class="post">
+        <div class="post-header">
+            <div class="avatar">🐧</div>
+            <div class="user-info"><b>阿恩恩</b><span>2月13日 · 果園</span></div>
+        </div>
+        <a href="fruit_game.html" class="game-display" style="background: linear-gradient(180deg, #FCE4EC 0%, #F8BBD0 100%);">
+            <div class="game-icon">🍎🍊</div>
+            <div class="game-name">企鵝與好朋友接水果</div>
+        </a>
+        <div class="post-content">
+            <div class="post-caption">我和好朋友一起接從天上掉下來的水果，小心不要接到炸彈喔！🍎🍊🍋</div>
+            <span id="fruit-score" class="score-badge">我的最高積分：0</span>
+        </div>
+    </div>
+
+    <!-- 5. 投籃 -->
+    <div class="post">
+        <div class="post-header">
+            <div class="avatar">🐧</div>
+            <div class="user-info"><b>阿恩恩</b><span>2月12日 · 球場</span></div>
+        </div>
+        <a href="hoop_game.html" class="game-display" style="background: linear-gradient(180deg, #FFF3E0 0%, #FFE0B2 100%);">
+            <div class="game-icon">🏀</div>
+            <div class="game-name">小企鵝投籃大賽</div>
+        </a>
+        <div class="post-content">
+            <div class="post-caption">拖曳瞄準，投進移動的籃框！每進一球得10分，挑戰100分！🏀🐧</div>
+            <span id="hoop-score" class="score-badge">我的最高積分：0</span>
+        </div>
+    </div>
+
+    <!-- 6. 地圖 -->
+    <div class="post">
+        <div class="post-header">
+            <div class="avatar">🐧</div>
+            <div class="user-info"><b>阿恩恩</b><span>2月11日 · 森林</span></div>
+        </div>
+        <a href="map_game.html" class="game-display" style="background: linear-gradient(180deg, #E8F5E9 0%, #A5D6A7 100%);">
+            <div class="game-icon">🌲🗺️</div>
+            <div class="game-name">森林探險地圖</div>
+        </a>
+        <div class="post-content">
+            <div class="post-caption">在神秘森林中探險，選擇分叉路徑，抵達終點看看得幾分！🌲✨</div>
+            <span id="map-score" class="score-badge">我的最高積分：0</span>
+        </div>
+    </div>
+
+    <!-- 7. 數學 -->
+    <div class="post">
+        <div class="post-header">
+            <div class="avatar">🐧</div>
+            <div class="user-info"><b>阿恩恩</b><span>2月10日 · 學校</span></div>
+        </div>
+        <a href="math_game.html" class="game-display" style="background: linear-gradient(180deg, #E8EAF6 0%, #C5CAE9 100%);">
+            <div class="game-icon">➕✏️</div>
+            <div class="game-name">數學大冒險</div>
+        </a>
+        <div class="post-content">
+            <div class="post-caption">回答加減乘除數學題，看看你的計算速度多快！支援簡單和困難兩種模式📐</div>
+            <span id="math-score" class="score-badge">我的最高積分：0</span>
+        </div>
+    </div>
+
+    <!-- 8. 彈珠台 -->
+    <div class="post">
+        <div class="post-header">
+            <div class="avatar">🐧</div>
+            <div class="user-info"><b>阿恩恩</b><span>2月9日 · 遊樂場</span></div>
+        </div>
+        <a href="pinball_game.html" class="game-display" style="background: linear-gradient(180deg, #F3E5F5 0%, #CE93D8 100%);">
+            <div class="game-icon">🎮</div>
+            <div class="game-name">瓦路易吉彈珠台</div>
+        </a>
+        <div class="post-content">
+            <div class="post-caption">拉彈弓發球，用左右撥片讓球撞擊得分！10顆球用完後結算成績🎮</div>
+            <span id="pinball-score" class="score-badge">我的最高積分：0</span>
+        </div>
+    </div>
+
+    <!-- 9. 保險箱 -->
+    <div class="post">
+        <div class="post-header">
+            <div class="avatar">🐧</div>
+            <div class="user-info"><b>阿恩恩</b><span>2月8日 · 神秘房間</span></div>
+        </div>
+        <a href="safe_game.html" class="game-display" style="background: linear-gradient(180deg, #EFEBE9 0%, #BCAAA4 100%);">
+            <div class="game-icon">🔐</div>
+            <div class="game-name">精密機械保險箱</div>
+        </a>
+        <div class="post-content">
+            <div class="post-caption">旋轉三個同心環撥盤，找出正確的數字組合，解鎖神秘保險箱！🔐💎</div>
+            <span id="safe-score" class="score-badge">我的最高積分：0</span>
+        </div>
+    </div>
+
 </div>
 
 <div class="nav-bar">
@@ -88,10 +205,25 @@
 </div>
 
 <script>
-    // 自動載入最新的賽車積分
     window.onload = function() {
-        const forestScore = localStorage.getItem('forest_score') || 0;
-        document.getElementById('forest-score-display').innerText = '我的最高積分：' + forestScore;
+        const scores = {
+            'racing-score':  ['forest_score',   '🏎️ 最高積分：'],
+            'bowling-score': ['bowling_score',  '🎳 最高積分：'],
+            'brick-score':   ['brick_score',    '💣 最高積分：'],
+            'fruit-score':   ['fruit_score',    '🍎 最高積分：'],
+            'hoop-score':    ['hoop_score',     '🏀 最高積分：'],
+            'map-score':     ['map_score',      '🗺️ 最高積分：'],
+            'math-score':    ['math_score',     '➕ 最高積分：'],
+            'pinball-score': ['pinball_score',  '🎮 最高積分：'],
+            'safe-score':    ['safe_score',     '🔐 最高積分：'],
+        };
+        Object.entries(scores).forEach(([id, [key, label]]) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const val = localStorage.getItem(key) || 0;
+            el.textContent = label + val;
+            if (val > 0) el.classList.add('top');
+        });
     };
 </script>
 

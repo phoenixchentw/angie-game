@@ -184,7 +184,7 @@ function applyEffect(r, it) {
 }
 
 function triggerExplosion(it) {
-    if(!it.active && it.type === 'bomb' && !it.isExploding) return; 
+    if(!it.active || it.type !== 'bomb') return;
     it.active = false; explosions.push({ x: it.x, y: it.y, life: 30 });
     racers.forEach(r => { if(r.rank === 0 && Math.hypot(r.x - it.x, r.y - it.y) < 180) { r.y = Math.max(0, r.y - 350); r.stun = 40; } });
 }

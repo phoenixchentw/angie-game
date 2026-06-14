@@ -253,7 +253,6 @@ function victory() {
 // 監聽器
 var startBtn = document.getElementById('start-btn');
 startBtn.addEventListener('click', startGame);
-startBtn.addEventListener('pointerdown', startGame);
 
 window.addEventListener('pointermove', move);
 window.addEventListener('touchmove', function(e){ e.preventDefault(); move(e); }, {passive:false});

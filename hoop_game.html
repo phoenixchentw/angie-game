@@ -274,7 +274,7 @@ function startGame() {
 
 function victory() {
     isGaming = false;
-    document.getElementById('final-score').innerText = "合作拿到 100 分了！";
+    document.getElementById('final-score').innerText = "投進 100 分了！";
     document.getElementById('result-modal').style.display = 'flex';
     try { localStorage.setItem('hoop_score', 100); } catch(e){}
 }
