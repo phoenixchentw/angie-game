@@ -50,6 +50,22 @@
 
 <div class="feed">
 
+    <!-- 0. 注音拼拼樂 -->
+    <div class="post">
+        <div class="post-header">
+            <div class="avatar">🐧</div>
+            <div class="user-info"><b>阿恩恩</b><span>剛剛 · 注音教室</span></div>
+        </div>
+        <a href="bopomofo_game.html" class="game-display" style="background: linear-gradient(180deg, #F3E5F5 0%, #E1BEE7 100%);">
+            <div class="game-icon">ㄅㄆㄇ</div>
+            <div class="game-name">注音拼拼樂</div>
+        </a>
+        <div class="post-content">
+            <div class="post-caption">看圖片，選出正確的注音符號，一起來練習拼音吧！🐶🌸🚗</div>
+            <span id="bopomofo-score" class="score-badge">我的最高積分：0</span>
+        </div>
+    </div>
+
     <!-- 1. 賽車 -->
     <div class="post">
         <div class="post-header">
@@ -216,6 +232,7 @@
             'math-score':    ['math_last_score',  '➕ 最高積分：'],
             'pinball-score': ['pinball_score',   '🎮 最高積分：'],
             'safe-score':    ['safe_high_score',  '🔐 最高積分：'],
+            'bopomofo-score':['bopomofo_score',   'ㄅ 最高積分：'],
         };
         Object.entries(scores).forEach(([id, [key, label]]) => {
             const el = document.getElementById(id);
