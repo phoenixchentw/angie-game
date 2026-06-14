@@ -308,7 +308,15 @@ window.onpointerup = () => {
     leftFlipper.state = 'down'; rightFlipper.state = 'down';
 };
 
-function finishGame() { isGaming = false; document.getElementById('final-score').innerText = "SCORE: " + score; document.getElementById('result-modal').style.display='flex'; }
+function finishGame() {
+    isGaming = false;
+    document.getElementById('final-score').innerText = "SCORE: " + score;
+    document.getElementById('result-modal').style.display='flex';
+    try {
+        const prev = parseInt(localStorage.getItem('pinball_score') || 0);
+        if (score > prev) localStorage.setItem('pinball_score', score);
+    } catch(e) {}
+}
 init();
 </script>
 </body>

@@ -213,9 +213,9 @@
             'fruit-score':   ['fruit_score',    '🍎 最高積分：'],
             'hoop-score':    ['hoop_score',     '🏀 最高積分：'],
             'map-score':     ['map_score',      '🗺️ 最高積分：'],
-            'math-score':    ['math_score',     '➕ 最高積分：'],
-            'pinball-score': ['pinball_score',  '🎮 最高積分：'],
-            'safe-score':    ['safe_score',     '🔐 最高積分：'],
+            'math-score':    ['math_last_score',  '➕ 最高積分：'],
+            'pinball-score': ['pinball_score',   '🎮 最高積分：'],
+            'safe-score':    ['safe_high_score',  '🔐 最高積分：'],
         };
         Object.entries(scores).forEach(([id, [key, label]]) => {
             const el = document.getElementById(id);

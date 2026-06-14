@@ -359,6 +359,10 @@ function finishGame() {
     camera.autoControl = false; 
     document.getElementById('current-score').innerText = player.currentNode.score;
     document.getElementById('final-score-text').innerText = "最終得分: " + player.currentNode.score;
+    try {
+        const prev = parseInt(localStorage.getItem('map_score') || 0);
+        if (player.currentNode.score > prev) localStorage.setItem('map_score', player.currentNode.score);
+    } catch(e) {}
     setTimeout(() => { document.getElementById('result-modal').style.display='flex'; }, 800);
 }
 
