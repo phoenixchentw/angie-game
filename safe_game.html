@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Angiegold - 精密機械保險櫃</title>
+    <style>
+        :root {
+            --forest-grass: #E8F5E9;
+            --accent: #4CAF50;
+            --inner-circle-bg: #BBDEFB; 
+            --mid-circle-bg: #FFF59D;   
+            --outer-circle-bg: #F8BBD0;  
+            --center-bg: #FFFFFF;       
+        }
+        
+        * { box-sizing: border-box; font-family: -apple-system, "Microsoft JhengHei", sans-serif; -webkit-tap-highlight-color: transparent; }
+        body, html { margin: 0; padding: 0; overflow: hidden; background-color: var(--forest-grass); height: 100vh; width: 100vw; position: fixed; }
+
+        #hud { 
+            position: absolute; top: 20px; right: 20px; z-index: 1000; 
+            pointer-events: none; color: #2E7D32; font-weight: bold; font-size: 16px; 
+            background: rgba(255,255,255,0.85); padding: 6px 12px; border-radius: 20px;
+        }
+        .lobby-btn {
+            position: absolute; top: 20px; left: 20px; padding: 8px 18px;
+            background: rgba(255, 255, 255, 0.95); border: 2px solid var(--accent);
+            border-radius: 25px; color: #2E7D32; font-weight: bold; font-size: 14px;
+            text-decoration: none; z-index: 5000;
+        }
+
+        /* 煙火畫布：最頂層，點擊穿透 */
+        #fwCanvas { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 9000; }
+
+        .game-container {
+            position: relative; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; height: 100vh; width: 100vw;
+            padding: 80px 0 110px 0; z-index: 20; 
+        }
+
+        #mode-badge {
+            font-size: 16px; font-weight: bold; color: white;
+            background-color: #78909C; padding: 4px 16px; border-radius: 12px;
+            margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        #safe-dial-container {
+            position: relative; width: 320px; height: 320px;
+            background: #ECEFF1; border-radius: 50%;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1); border: 6px solid #B0BEC5;
+            user-select: none; -webkit-user-select: none; margin-bottom: 20px; 
+        }
+
+        #right-indicator {
+            position: absolute; right: -20px; top: 50%; transform: translateY(-50%);
+            width: 0; height: 0; border-top: 12px solid transparent; border-bottom: 12px solid transparent;
+            border-right: 22px solid #E53935; z-index: 100;
+        }
+
+        #center-target {
+            position: absolute; width: 76px; height: 76px;
+            left: 50%; top: 50%; transform: translate(-50%, -50%);
+            background: var(--center-bg); border-radius: 50%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-weight: bold; border: 4px solid #B0BEC5; z-index: 10;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        }
+        .target-text { font-size: 30px; font-weight: bold; color: #1B5E20; }
+        .lock-indicator { font-size: 11px; color: #78909C; margin-top: -2px; font-weight: bold; }
+
+        .safe-ring { position: absolute; border-radius: 50%; display: flex; align-items: center; justify-content: center; touch-action: none; cursor: pointer; }
+        .safe-ring-inner { width: 140px; height: 140px; left: calc(50% - 70px); top: calc(50% - 70px); background: var(--inner-circle-bg); z-index: 5; }
+        .safe-ring-mid { width: 220px; height: 220px; left: calc(50% - 110px); top: calc(50% - 110px); background: var(--mid-circle-bg); z-index: 3; }
+        .safe-ring-outer { width: 296px; height: 296px; left: calc(50% - 148px); top: calc(50% - 148px); background: var(--outer-circle-bg); z-index: 1; }
+
+        .dial-label-wrapper {
+            position: absolute; width: 34px; height: 34px;
+            display: flex; align-items: center; justify-content: center;
+            background: white; border: 2px solid #CFD8DC; border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.06); pointer-events: none;
+            transition: background-color 0.15s, border-color 0.15s, opacity 0.3s;
+        }
+        .dial-label-wrapper.selected { background-color: #4CAF50; border-color: #2E7D32; }
+        .dial-label-wrapper.selected span { color: white !important; }
+        
+        .dial-label-wrapper.disabled-node {
+            background-color: #CFD8DC !important;
+            border-color: #90A4AE !important;
+            opacity: 0.35;
+        }
+        .dial-label-wrapper.disabled-node span {
+            color: #78909C !important;
+            text-decoration: line-through;
+        }
+
+        .dial-label-wrapper span { font-size: 16px; font-weight: bold; color: #37474F; display: block; }
+        .dial-label-wrapper.op span { color: #C62828; font-size: 20px; }
+
+        #unlock-formula {
+            font-size: 28px; font-weight: bold; color: #37474F; background: rgba(255,255,255,0.9);
+            padding: 10px 30px; border-radius: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 15px;
+        }
+        #unlock-formula.match-hint { background-color: #E8F5E9; color: #2E7D32; box-shadow: 0 0 15px rgba(76,175,80,0.4); }
+
+        #unlock-btn { padding: 12px 50px; font-size: 20px; font-weight: bold; background-color: #2E7D32; color: white; border: none; border-radius: 30px; cursor: pointer; margin-bottom: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: background-color 0.3s; }
+        #unlock-btn.stop-style { background-color: #E53935; box-shadow: 0 4px 10px rgba(229,57,53,0.3); }
+        #unlock-btn:active { transform: scale(0.98); }
+
+        #history-panel {
+            position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%);
+            width: 90%; max-width: 400px; background: rgba(255,255,255,0.85);
+            border-radius: 15px; padding: 8px 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); z-index: 100;
+        }
+        .history-title { font-size: 12px; color: #718096; font-weight: bold; margin-bottom: 4px; display: flex; justify-content: space-between; }
+        .bead-plate { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
+        .bead-plate::-webkit-scrollbar { height: 4px; }
+        .bead-plate::-webkit-scrollbar-thumb { background: #CBD5E0; border-radius: 2px; }
+        .bead-node { min-width: 34px; height: 34px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #E2E8F0; }
+
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 99999; }
+        .multi-treasure-box { display: flex; gap: 15px; justify-content: center; margin: 15px 0; }
+        .treasure-item-card { background: white; padding: 10px 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); text-align: center; border: 2px solid #E2E8F0; }
+        .card-icon { font-size: 70px; }
+        .card-name { font-size: 14px; font-weight: bold; color: #2E7D32; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+<div id="hud">獲得寶物: <span id="high-score">0</span></div>
+<a href="index.html" class="lobby-btn">🏠 大廳</a>
+
+<canvas id="fwCanvas"></canvas>
+
+<div class="game-container">
+    <div id="mode-badge">🎰 鎖定解除中...</div>
+
+    <div id="safe-dial-container">
+        <div id="right-indicator"></div>
+        <div id="center-target">?</div>
+        
+        <div id="ring-inner" class="safe-ring safe-ring-inner"></div>
+        <div id="ring-mid" class="safe-ring safe-ring-mid"></div>
+        <div id="ring-outer" class="safe-ring safe-ring-outer"></div>
+    </div>
+    
+    <div id="unlock-formula">0 + 0 = 0</div>
+    <button id="unlock-btn" onclick="handleBtnClick()">解鎖保險櫃！</button>
+
+    <div id="history-panel">
+        <div class="history-title"><span>最近獲得的寶物</span><span onclick="clearHistory()" style="cursor:pointer;color:#E53935;">🗑️ 清空</span></div>
+        <div id="bead-plate-container" class="bead-plate"></div>
+    </div>
+</div>
+
+<div id="unlock-success-screen" class="overlay" style="display:none;">
+    <div id="success-title" style="font-size: min(7.5vw, 32px); font-weight: bold; color: #37474F; white-space: nowrap; text-align: center; width: 100%; margin-bottom: 15px; display: block;"></div>
+    <div id="treasures-container-box" class="multi-treasure-box"></div>
+    <button style="background: #2E7D32; color: white; border: none; padding: 15px 50px; font-size: 20px; border-radius: 30px; font-weight: bold; cursor: pointer;" onclick="location.reload()">挑戰下一關</button>
+</div>
+
+<script>
+    const centerTarget = document.getElementById('center-target');
+    const safeDialContainer = document.getElementById('safe-dial-container');
+    const ringInner = document.getElementById('ring-inner');
+    const ringMid = document.getElementById('ring-mid');
+    const ringOuter = document.getElementById('ring-outer');
+    const unlockFormula = document.getElementById('unlock-formula');
+    const unlockBtn = document.getElementById('unlock-btn');
+    const successScreen = document.getElementById('unlock-success-screen');
+    const beadPlateContainer = document.getElementById('bead-plate-container');
+    const modeBadge = document.getElementById('mode-badge');
+    const treasuresContainerBox = document.getElementById('treasures-container-box');
+    const successTitle = document.getElementById('success-title');
+    
+    let ringValues = { inner: [], mid: [], outer: [] };
+    let currentAngle = { inner: 0, mid: 0, outer: 0 };
+    const selectedLabels = { inner: 0, mid: '+', outer: 0 };
+    const labelCounts = { inner: 8, mid: 8, outer: 16 };
+    
+    let targetAnswer = 0; 
+    let gameMode = "NORMAL"; 
+    let doubleLockStage = 1;  
+    let currentCalculatedResult = 0;
+
+    let introState = "SPINNING"; 
+    let spinSpeeds = { inner: 24, mid: -18, outer: 14 };
+    let introTimer = null;
+    let introStartTime = 0;
+
+    let disabledIndexes = { inner: -1, outer: -1 };
+
+    const treasurePool = [
+        { icon: "💎", name: "閃亮藍鑽石" }, { icon: "👑", name: "皇家金皇冠" },
+        { icon: "🔮", name: "夢幻水晶球" }, { icon: "🧸", name: "溫柔小熊玩偶" },
+        { icon: "🦄", name: "彩虹獨角獸" }, { icon: "🌟", name: "幸運許願星" },
+        { icon: "🍫", name: "甜蜜巧克力" }, { icon: "🏆", name: "冠軍金獎盃" }
+    ];
+
+    function determineGameMode() {
+        const rand = Math.random();
+        if (rand < 0.30) {
+            gameMode = "ALL_MINUS";
+            modeBadge.innerText = "📉 挑戰：全減法模式";
+            modeBadge.style.backgroundColor = "#C62828";
+        } else if (rand < 0.60) {
+            gameMode = "DOUBLE_LOCK";
+            modeBadge.innerText = "🔐 雙重鎖：相同答案，不同組合";
+            modeBadge.style.backgroundColor = "#7B1FA2";
+            doubleLockStage = 1;
+            disabledIndexes = { inner: -1, outer: -1 };
+        } else {
+            gameMode = "NORMAL";
+            modeBadge.innerText = "🔒 標準加減混合模式";
+            modeBadge.style.backgroundColor = "#4CAF50";
+        }
+    }
+
+    function generatePerfectPuzzle() {
+        determineGameMode();
+        targetAnswer = Math.floor(Math.random() * 16) + 3; 
+
+        let innerSet = new Set(), outerSet = new Set();
+
+        if (gameMode === "ALL_MINUS") {
+            while(innerSet.size < 4) {
+                let b = Math.floor(Math.random() * 11); 
+                let a = targetAnswer + b;              
+                if(!innerSet.has(a) && !outerSet.has(b) && a <= 20 && b <= 20) { innerSet.add(a); outerSet.add(b); }
+            }
+            ringValues.mid = Array.from({ length: labelCounts.mid }, () => '-');
+        } 
+        else {
+            while(innerSet.size < 1) {
+                let a = Math.floor(Math.random() * (targetAnswer + 1)), b = targetAnswer - a;
+                if(a <= 20 && b <= 20) { innerSet.add(a); outerSet.add(b); }
+            }
+            while(innerSet.size < 2) {
+                let b = Math.floor(Math.random() * 11), a = targetAnswer + b;
+                if(!innerSet.has(a) && !outerSet.has(b) && a <= 20 && b <= 20) { innerSet.add(a); outerSet.add(b); }
+            }
+            while(innerSet.size < 4) {
+                let b = Math.floor(Math.random() * 11), a = targetAnswer + b;
+                if(!innerSet.has(a) && !outerSet.has(b) && a <= 20 && b <= 20) { innerSet.add(a); outerSet.add(b); }
+            }
+            ringValues.mid = Array.from({ length: labelCounts.mid }, (_, i) => (i % 2 === 0 ? '+' : '-'));
+        }
+
+        while(innerSet.size < labelCounts.inner) innerSet.add(Math.floor(Math.random() * 21));
+        while(outerSet.size < labelCounts.outer) outerSet.add(Math.floor(Math.random() * 21));
+
+        ringValues.inner = Array.from(innerSet).sort(() => Math.random() - 0.5);
+        ringValues.outer = Array.from(outerSet).sort(() => Math.random() - 0.5);
+    }
+
+    function renderCenterTarget(fakeText) {
+        if(introState !== "READY") {
+            centerTarget.innerHTML = `<div class="target-single">${fakeText}</div>`;
+            return;
+        }
+
+        if (gameMode === "DOUBLE_LOCK") {
+            let subIndicator = doubleLockStage === 1 ? "🔒 第一層" : "🔓 第二層";
+            centerTarget.innerHTML = `<div class="target-text">${targetAnswer}</div><div class="lock-indicator">${subIndicator}</div>`;
+        } else {
+            centerTarget.innerHTML = `<div class="target-text">${targetAnswer}</div>`;
+        }
+    }
+
+    function initGame() {
+        document.getElementById('high-score').innerText = localStorage.getItem('safe_high_score') || 0;
+        renderHistory();
+        generatePerfectPuzzle();
+
+        generateLabels(ringInner, ringValues.inner, labelCounts.inner, 52, 'number', 'inner');
+        generateLabels(ringMid, ringValues.mid, labelCounts.mid, 90, 'op', 'mid');
+        generateLabels(ringOuter, ringValues.outer, labelCounts.outer, 126, 'number', 'outer');
+
+        setupUniversalDrag(ringInner, 'inner');
+        setupUniversalDrag(ringMid, 'mid');
+        setupUniversalDrag(ringOuter, 'outer');
+
+        initCanvas();
+        runAdvancedIntroEngine();
+    }
+
+    function runAdvancedIntroEngine() {
+        introState = "SPINNING";
+        unlockBtn.disabled = false;
+        unlockBtn.innerText = "🛑 點擊按停！";
+        unlockBtn.classList.add('stop-style');
+        
+        introStartTime = Date.now();
+        spinSpeeds = { inner: 24, mid: -18, outer: 14 };
+
+        introTimer = setInterval(() => {
+            const elapsed = Date.now() - introStartTime;
+
+            if (introState === "SPINNING") {
+                renderCenterTarget(Math.floor(Math.random() * 21));
+                if (elapsed >= 2000) {
+                    triggerBrake();
+                }
+            } else if (introState === "BRAKING") {
+                spinSpeeds.inner *= 0.88;
+                spinSpeeds.mid *= 0.88;
+                spinSpeeds.outer *= 0.88;
+
+                if (Math.abs(spinSpeeds.inner) < 0.1) {
+                    clearInterval(introTimer);
+                    introState = "READY";
+                    
+                    // --- 🛠️ 關鍵 Bug 修正：重新啟用按鈕點擊功能 ---
+                    unlockBtn.disabled = false; 
+                    unlockBtn.innerText = "解鎖保險櫃！";
+                    unlockBtn.classList.remove('stop-style');
+                    
+                    currentAngle.inner = Math.round(currentAngle.inner / (360/labelCounts.inner)) * (360/labelCounts.inner);
+                    currentAngle.mid = Math.round(currentAngle.mid / (360/labelCounts.mid)) * (360/labelCounts.mid);
+                    currentAngle.outer = Math.round(currentAngle.outer / (360/labelCounts.outer)) * (360/labelCounts.outer);
+                    
+                    updateDialDisplay('inner'); updateDialDisplay('mid'); updateDialDisplay('outer');
+                    renderCenterTarget();
+                    return;
+                }
+            }
+
+            currentAngle.inner += spinSpeeds.inner;
+            currentAngle.mid += spinSpeeds.mid;
+            currentAngle.outer += spinSpeeds.outer;
+
+            ringInner.style.transform = `rotate(${currentAngle.inner}deg)`;
+            ringMid.style.transform = `rotate(${currentAngle.mid}deg)`;
+            ringOuter.style.transform = `rotate(${currentAngle.outer}deg)`;
+
+            ringInner.querySelectorAll('span').forEach(s => s.style.transform = `rotate(${-currentAngle.inner}deg)`);
+            ringMid.querySelectorAll('span').forEach(s => s.style.transform = `rotate(${-currentAngle.mid}deg)`);
+            ringOuter.querySelectorAll('span').forEach(s => s.style.transform = `rotate(${-currentAngle.outer}deg)`);
+
+        }, 30);
+    }
+
+    function triggerBrake() {
+        if (introState !== "SPINNING") return;
+        introState = "BRAKING";
+        unlockBtn.innerText = "⏳ 正在煞車減速...";
+        unlockBtn.disabled = true;
+    }
+
+    function handleBtnClick() {
+        if (introState === "SPINNING") {
+            triggerBrake(); 
+        } else if (introState === "READY") {
+            checkUnlock();  
+        }
+    }
+
+    function generateLabels(ring, values, count, radius, type, ringId) {
+        for (let i = 0; i < count; i++) {
+            const wrapper = document.createElement('div');
+            wrapper.className = `dial-label-wrapper ${type} ring-item-${ringId}-${i}`;
+            const angle = (i * (360 / count)) * (Math.PI / 180); 
+            const x = Math.cos(angle) * radius; const y = Math.sin(angle) * radius;
+            wrapper.style.left = `calc(50% + ${x}px - 17px)`; wrapper.style.top = `calc(50% + ${y}px - 17px)`;
+            const span = document.createElement('span'); span.innerText = values[i];
+            wrapper.appendChild(span); ring.appendChild(wrapper);
+        }
+    }
+
+    function setupUniversalDrag(ring, type) {
+        let isDragging = false, startAngle = 0, ringStartAngle = 0;
+        function calculateAngle(clientX, clientY) {
+            const rect = safeDialContainer.getBoundingClientRect();
+            return Math.atan2(clientY - (rect.top + rect.height/2), clientX - (rect.left + rect.width/2)) * (180 / Math.PI);
+        }
+        function onStart(e) {
+            if(introState !== "READY") return; 
+            isDragging = true;
+            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            startAngle = calculateAngle(clientX, clientY);
+            ringStartAngle = currentAngle[type];
+            window.addEventListener('mousemove', onMove, { passive: false });
+            window.addEventListener('touchmove', onMove, { passive: false });
+            window.addEventListener('mouseup', onEnd); window.addEventListener('touchend', onEnd);
+            if(e.cancelable) e.preventDefault();
+        }
+        function onMove(e) {
+            if (!isDragging) return;
+            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            currentAngle[type] = ringStartAngle + (calculateAngle(clientX, clientY) - startAngle);
+            updateDialDisplay(type);
+            if(e.cancelable) e.preventDefault();
+        }
+        function onEnd() { isDragging = false; window.removeEventListener('mousemove', onMove); window.removeEventListener('touchmove', onMove); }
+        ring.addEventListener('mousedown', onStart); ring.addEventListener('touchstart', onStart, { passive: false });
+    }
+
+    function updateDialDisplay(type) {
+        if(introState !== "READY") return;
+        const ring = type === 'inner' ? ringInner : (type === 'mid' ? ringMid : ringOuter);
+        ring.style.transform = `rotate(${currentAngle[type]}deg)`;
+        
+        ring.querySelectorAll('.dial-label-wrapper').forEach(el => {
+            el.querySelector('span').style.transform = `rotate(${-currentAngle[type]}deg)`;
+            el.classList.remove('selected');
+        });
+
+        const anglePerItem = 360 / labelCounts[type];
+        const normalizedAngle = ((currentAngle[type] % 360) + 360) % 360; 
+        const indexAtRight = Math.round((360 - normalizedAngle) / anglePerItem) % labelCounts[type];
+        
+        selectedLabels[type] = ringValues[type][indexAtRight];
+        selectedLabels[type + 'Index'] = indexAtRight; 
+
+        const selectedEl = ring.querySelector(`.ring-item-${type}-${indexAtRight}`);
+        if(selectedEl) selectedEl.classList.add('selected');
+
+        if (selectedLabels.mid === '+') {
+            currentCalculatedResult = selectedLabels.inner + selectedLabels.outer;
+        } else {
+            currentCalculatedResult = selectedLabels.inner - selectedLabels.outer;
+        }
+        unlockFormula.innerText = `${selectedLabels.inner} ${selectedLabels.mid} ${selectedLabels.outer} = ${currentCalculatedResult}`;
+
+        let isCurrentNodeDisabled = (gameMode === "DOUBLE_LOCK" && doubleLockStage === 2 && (indexAtRight === disabledIndexes.inner || indexAtRight === disabledIndexes.outer));
+        
+        if (currentCalculatedResult === targetAnswer && !isCurrentNodeDisabled) { 
+            unlockFormula.classList.add('match-hint'); 
+        } else { 
+            unlockFormula.classList.remove('match-hint'); 
+        }
+    }
+
+    function renderHistory() {
+        const history = JSON.parse(localStorage.getItem('safe_history_pool')) || [];
+        beadPlateContainer.innerHTML = '';
+        history.forEach(icon => {
+            const node = document.createElement('div'); node.className = 'bead-node'; node.innerText = icon;
+            beadPlateContainer.appendChild(node);
+        });
+        setTimeout(() => { beadPlateContainer.scrollLeft = beadPlateContainer.scrollWidth; }, 100);
+    }
+
+    function pushHistory(icon) {
+        let history = JSON.parse(localStorage.getItem('safe_history_pool')) || [];
+        history.push(icon); if(history.length > 30) history.shift();
+        localStorage.setItem('safe_history_pool', JSON.stringify(history));
+        renderHistory();
+    }
+
+    function clearHistory() { localStorage.removeItem('safe_history_pool'); renderHistory(); }
+
+    function getRandomTreasureUnique() {
+        const lastTreasureIcon = localStorage.getItem('safe_last_treasure_icon') || "";
+        let availablePool = treasurePool.filter(t => t.icon !== lastTreasureIcon);
+        if(availablePool.length === 0) availablePool = treasurePool;
+        const selected = availablePool[Math.floor(Math.random() * availablePool.length)];
+        localStorage.setItem('safe_last_treasure_icon', selected.icon); 
+        return selected;
+    }
+
+    function checkUnlock() {
+        if(introState !== "READY") return;
+
+        if (gameMode === "DOUBLE_LOCK" && doubleLockStage === 2) {
+            if (selectedLabels.innerIndex === disabledIndexes.inner || selectedLabels.outerIndex === disabledIndexes.outer) {
+                unlockFormula.style.color = '#78909C';
+                unlockFormula.innerText = "❌ 此組合已被封印，換一組！";
+                setTimeout(() => updateDialDisplay('inner'), 800);
+                return;
+            }
+        }
+
+        if (currentCalculatedResult === targetAnswer) {
+            if (gameMode === "DOUBLE_LOCK" && doubleLockStage === 1) {
+                doubleLockStage = 2;
+                
+                disabledIndexes.inner = selectedLabels.innerIndex;
+                disabledIndexes.outer = selectedLabels.outerIndex;
+
+                document.querySelector(`.ring-item-inner-${disabledIndexes.inner}`).classList.add('disabled-node');
+                document.querySelector(`.ring-item-outer-${disabledIndexes.outer}`).classList.add('disabled-node');
+
+                renderCenterTarget();
+                updateDialDisplay('inner'); 
+
+                unlockFormula.style.backgroundColor = "#E1F5FE";
+                setTimeout(() => { unlockFormula.style.backgroundColor = "rgba(255,255,255,0.9)"; }, 400);
+                return;
+            }
+
+            startFireworks();
+            treasuresContainerBox.innerHTML = '';
+
+            let scoreIncrement = gameMode === "DOUBLE_LOCK" ? 2 : 1;
+            successTitle.innerText = gameMode === "DOUBLE_LOCK" ? "🔐 雙重組合封印解除！" : "🎉 保險櫃開啟成功 🎉";
+            
+            let luckyItems = [];
+            luckyItems.push(getRandomTreasureUnique());
+            if (gameMode === "DOUBLE_LOCK") luckyItems.push(getRandomTreasureUnique());
+            
+            let score = (parseInt(localStorage.getItem('safe_high_score')) || 0) + scoreIncrement;
+            localStorage.setItem('safe_high_score', score);
+            luckyItems.forEach(item => pushHistory(item.icon));
+
+            setTimeout(() => {
+                luckyItems.forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = 'treasure-item-card';
+                    card.innerHTML = `<div class="card-icon" style="animation: popIn 0.4s ease;">${item.icon}</div><div class="card-name">${item.name}</div>`;
+                    treasuresContainerBox.appendChild(card);
+                });
+                successScreen.style.display = 'flex';
+                stopFireworks();
+            }, 2000);
+        } else {
+            unlockFormula.style.color = '#E53935';
+            setTimeout(() => unlockFormula.style.color = '#37474F', 400);
+        }
+    }
+
+    // --- 煙火輕量粒子引擎 ---
+    const fwCanvas = document.getElementById('fwCanvas');
+    const fctx = fwCanvas.getContext('2d');
+    let fwAnimationId, particles = [], isFwRunning = false;
+
+    function initCanvas() { fwCanvas.width = window.innerWidth; fwCanvas.height = window.innerHeight; }
+    window.addEventListener('resize', initCanvas);
+
+    class Particle {
+        constructor(x, y, color) {
+            this.x = x; this.y = y; this.color = color;
+            this.radius = Math.random() * 3 + 2;
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 6 + 4;
+            this.vx = Math.cos(angle) * speed; this.vy = Math.sin(angle) * speed;
+            this.alpha = 1; this.gravity = 0.12;
+        }
+        draw() {
+            fctx.save(); fctx.globalAlpha = this.alpha; fctx.beginPath();
+            fctx.fillStyle = this.color; fctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
+            fctx.fill(); fctx.restore();
+        }
+        update() { this.x += this.vx; this.vy += this.gravity; this.y += this.vy; this.alpha -= 0.015; }
+    }
+
+    function spawnExplosion() {
+        if(!isFwRunning) return;
+        const x = Math.random() * fwCanvas.width;
+        const y = Math.random() * (fwCanvas.height * 0.6) + (fwCanvas.height * 0.1);
+        const colors = ['#FF8A80', '#FFD700', '#4CAF50', '#00E5FF', '#FF4081', '#AA00FF'];
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        for(let i=0; i<45; i++) particles.push(new Particle(x, y, color));
+        setTimeout(spawnExplosion, Math.random() * 400 + 200);
+    }
+
+    function animateFireworks() {
+        fctx.clearRect(0, 0, fwCanvas.width, fwCanvas.height);
+        particles.forEach((p, i) => { p.update(); p.draw(); if(p.alpha <= 0) particles.splice(i, 1); });
+        if(isFwRunning || particles.length > 0) fwAnimationId = requestAnimationFrame(animateFireworks);
+    }
+
+    function startFireworks() { isFwRunning = true; particles = []; spawnExplosion(); animateFireworks(); }
+    function stopFireworks() { isFwRunning = false; cancelAnimationFrame(fwAnimationId); fctx.clearRect(0, 0, fwCanvas.width, fwCanvas.height); }
+
+    initGame();
+</script>
+</body>
+</html>
