@@ -153,6 +153,41 @@
             pointer-events: none; z-index: 9999;
             display: none;
         }
+
+        /* ── 平板響應式（iPad mini 直屏 ≥ 600px） ── */
+        @media (min-width: 600px) {
+            .top-bar { padding: 12px 20px; }
+            .home-btn { font-size: 28px; }
+            .top-info span { font-size: 20px; }
+
+            .image-card { margin: 12px 20px 6px; padding: 14px 16px 10px; border-radius: 22px; }
+            .emoji-big  { font-size: 90px; }
+            .word-big   { font-size: 36px; letter-spacing: 10px; margin-top: 6px; }
+
+            .answer-area { gap: 10px; padding: 12px 24px 6px; }
+            .slot { width: 60px; height: 68px; font-size: 30px; border-radius: 14px; }
+            .slot-row { gap: 8px; }
+            .char-label { font-size: 17px; height: 20px; }
+            .group-sep { font-size: 26px; }
+
+            .action-row { gap: 16px; padding: 8px 20px; }
+            .btn-del { padding: 12px 28px; font-size: 26px; }
+            .btn-ok  { padding: 12px 40px; font-size: 20px; }
+
+            .tone-row { gap: 14px; padding: 6px 20px; }
+            .tone-card { width: 76px; height: 68px; border-radius: 16px; }
+            .tone-sym  { font-size: 26px; }
+            .tone-name { font-size: 13px; }
+
+            .bopo-area { padding: 8px 16px 12px; }
+            .bopo-grid { gap: 12px; }
+            .bopo-card { width: 68px; height: 68px; font-size: 32px; border-radius: 16px; }
+
+            .fullscreen h1 { font-size: 48px; }
+            .fullscreen p  { font-size: 20px; }
+            .btn-main { padding: 20px 60px; font-size: 26px; }
+            .btn-secondary { padding: 16px 44px; font-size: 22px; }
+        }
     </style>
 </head>
 <body>
